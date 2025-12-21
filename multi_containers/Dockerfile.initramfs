@@ -1,0 +1,42 @@
+ARG BASE_IMAGE=alpine:latest
+
+FROM ${BASE_IMAGE}
+
+# 安装构建 initramfs 所需的工具和软件包
+RUN apk add --no-cache \
+    # 网络工具
+    nftables \
+    ipset \
+    iproute2 \
+    bridge-utils \
+    # 系统工具
+    busybox \
+    coreutils \
+    util-linux \
+    # 调试工具
+    strace \
+    tcpdump \
+    curl \
+    wget \
+    # busybox 的ping会走SOCK_RAW流程，而不会走SOCK_DGRAM流程，导致部分环境下ping_v4_sendmsg无法调试，安装iputils提供ping命令
+    iputils \
+    # 文件系统工具
+    e2fsprogs \
+    dosfstools \
+    # 内核模块工具
+    kmod \
+    # 压缩工具
+    cpio \
+    gzip \
+    xz \
+    # 其他有用的工具
+    nano \
+    htop \
+    procps \
+    ca-certificates 
+
+# 创建工作目录
+WORKDIR /work
+
+# 默认命令
+CMD ["/bin/sh"]

@@ -1,0 +1,66 @@
+services:
+  kernel-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: linux-kernel-dev:latest
+    container_name: kernel-dev
+    hostname: kernel-dev
+    # 暴露 GDB 调试端口
+    ports:
+      - "1234:1234"  # GDB remote debugging
+    volumes:
+      # 挂载内核源码目录（根据实际情况调整）
+      - /Volumes/linux/linux-6.12.63:/kernel:rw
+      # 挂载 output 目录用于输出编译产物
+      - ./output:/output:rw
+      # 挂载辅助脚本（只读）
+      - ./build_kernel.sh:/scripts/build_kernel.sh:ro
+    environment:
+      # 设置架构（可选：arm64, arm, x86_64）
+      - ARCH=arm64
+      # 交叉编译工具前缀（如果需要）
+      # - CROSS_COMPILE=aarch64-linux-gnu-
+      # 并行编译任务数
+      - JOBS=4
+      # 输出目录
+      - OUTPUT_DIR=/output
+      # Rootfs 目录
+      - ROOTFS_DIR=/output/rootfs
+      # 强制重新配置内核（yes=删除现有.config并重新应用minimal_debug.config）
+      # - FORCE_RECONFIG=yes
+      # QEMU 调试配置
+      - KERNEL_IMAGE=/output/Image
+      - INITRAMFS=/output/initramfs.cpio.gz
+      - GDB_PORT=1234
+    working_dir: /kernel
+    # 保持容器运行，方便调试和 VSCode Remote 连接
+    stdin_open: true
+    tty: true
+    # 提升权限以支持 QEMU 网络
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    command: /bin/bash
+
+  initramfs-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.initramfs
+      args:
+        - BASE_IMAGE=alpine:latest
+    image: initramfs-builder:latest
+    container_name: initramfs-builder
+    volumes:
+      # 挂载 output 目录用于读写 rootfs 和输出 initramfs
+      - ./output:/output:rw
+      # 挂载构建脚本
+      - ./build_initramfs.sh:/scripts/build_initramfs.sh:ro
+    environment:
+      - OUTPUT_DIR=/output
+      - ROOTFS_DIR=/output/rootfs
+      - INITRAMFS_FILE=initramfs.cpio.gz
+    working_dir: /work
+    stdin_open: true
+    tty: true
+    command: /bin/sh

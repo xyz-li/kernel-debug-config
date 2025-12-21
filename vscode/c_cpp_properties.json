@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux Kernel ARM64",
+            "compileCommands": "${workspaceFolder}/compile_commands.json",
+            "intelliSenseMode": "gcc-arm",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "compilerArgs": [],
+            "browse": {
+                "path": [
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
+        }
+    ],
+    "version": 4
+}

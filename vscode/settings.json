@@ -1,0 +1,100 @@
+{
+    // ========================================
+    // 禁用 C/C++ 扩展的 IntelliSense，改用 clangd
+    // ========================================
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
+
+    // ========================================
+    // clangd 配置
+    // ========================================
+    "clangd.path": "/usr/bin/clangd",
+    "clangd.arguments": [
+        "--compile-commands-dir=${workspaceFolder}",
+        "--background-index",
+        "--clang-tidy",
+        "--completion-style=detailed",
+        "--header-insertion=never",
+        "--pch-storage=memory",
+        "--log=error",
+        "--all-scopes-completion",
+        "--suggest-missing-includes",
+        "-j=4"  // 使用 4 个线程进行索引
+    ],
+    "clangd.fallbackFlags": [],
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "terminal.integrated.env.osx": {
+        "PATH": "/usr/local/bin:${env:PATH}"
+    },
+    "files.eol": "\n", // 保持 Linux 换行符
+    "files.encoding": "utf8",
+
+    // 排除二进制文件和构建产物，提高索引性能
+    "files.exclude": {
+        "**/*.o": true,
+        "**/*.a": true,
+        "**/*.so": true,
+        "**/*.so.dbg": true,
+        "**/*.ko": true,
+        "**/*.mod": true,
+        "**/*.mod.c": true,
+        "**/*.o.*": true,
+        "**/*.elf": true,
+        "**/*.bin": true,
+        "**/*.dtb": true,
+        "**/*.dtbo": true,
+        "**/*.cmd": true,
+        "**/.tmp_*": true,
+        "**/*.gz": true,
+        "**/*.bz2": true,
+        "**/*.xz": true,
+        "**/*.lz4": true,
+        "**/built-in.a": true,
+        "**/modules.order": true,
+        "**/Module.symvers": true,
+        "**/.*.d": true
+    },
+
+    // 从搜索中排除
+    "search.exclude": {
+        "**/*.o": true,
+        "**/*.a": true,
+        "**/*.so": true,
+        "**/*.ko": true,
+        "**/*.mod.c": true,
+        "**/*.cmd": true,
+        "**/.tmp_*": true,
+        "**/node_modules": true,
+        "**/bower_components": true
+    },
+
+    // 排除文件监视，减少资源占用
+    "files.watcherExclude": {
+        "**/*.o": true,
+        "**/*.a": true,
+        "**/*.so": true,
+        "**/*.ko": true,
+        "**/*.cmd": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true
+    },
+
+    // C/C++ 扩展排除规则，优化 IntelliSense
+    "C_Cpp.files.exclude": {
+        "**/*.o": true,
+        "**/*.a": true,
+        "**/*.so": true,
+        "**/*.ko": true,
+        "**/*.mod.c": true,
+        "**/*.cmd": true,
+        "**/.tmp_*": true
+    },
+
+    // 禁用某些语言的语义高亮以提高性能
+    "C_Cpp.enhancedColorization": "disabled",
+
+    // 限制 IntelliSense 缓存大小
+    // "C_Cpp.intelliSenseCacheSize": 2048
+}

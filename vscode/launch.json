@@ -1,0 +1,50 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to QEMU (自动连接)",
+            "type": "cppdbg",
+            "request": "launch",
+            // 修改为你的内核符号文件绝对路径
+            "program": "${workspaceFolder}/vmlinux",
+            "MIMode": "gdb",
+            // 修改为你的交叉GDB路径
+            // "miDebuggerPath": "/opt/homebrew/bin/aarch64-elf-gdb",
+            // QEMU GDB服务器地址和端口
+            "miDebuggerServerAddress": "localhost:1234",
+            // 必须设置为true以支持远程调试
+            "useExtendedRemote": true,
+            "cwd": "${workspaceFolder}",
+            // 自动执行的GDB命令序列
+            "setupCommands": [
+                {
+                    "description": "设置架构为aarch64",
+                    "text": "set architecture aarch64",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "加载内核符号文件",
+                    "text": "add-symbol-file /Volumes/linux/linux-6.12.63/vmlinux",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "设置源代码路径替换",
+                    "text": "set substitute-path /kernel ${workspaceFolder}",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "启用美化打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "logging": {
+                "engineLogging": true, // 显示GDB通信日志，调试时有用
+                "trace": true
+            },
+            // 过滤掉无关的输出
+            "filterStderr": true,
+            "filterStdout": false
+        }
+    ]
+}

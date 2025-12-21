@@ -1,0 +1,6 @@
+
+Types: deb
+URIs: http://mirrors.aliyun.com/ubuntu-ports/
+Suites: noble noble-updates noble-security
+Components: main universe restricted multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg

@@ -1,0 +1,37 @@
+# Initramfs Builder Environment
+ARG BASE_IMAGE=alpine:latest
+FROM ${BASE_IMAGE}
+
+# 安装构建 initramfs 所需的工具
+RUN apk add --no-cache \
+    # 基础工具
+    bash \
+    coreutils \
+    findutils \
+    # 打包工具
+    cpio \
+    gzip \
+    # BusyBox (Alpine 自带，确保完整版本)
+    busybox \
+    # 网络工具
+    # busybox 的ping会走SOCK_RAW流程，而不会走SOCK_DGRAM流程，导致部分环境下ping_v4_sendmsg无法调试，安装iputils提供ping命令
+    iputils \
+    iptables \
+    ip6tables \
+    ipset \
+    # 其他实用工具
+    file \
+    tree \
+    && rm -rf /var/cache/apk/*
+
+# 创建必要的目录
+RUN mkdir -p /work /output /scripts
+
+# 设置工作目录
+WORKDIR /work
+
+# 设置默认 shell
+SHELL ["/bin/sh", "-c"]
+
+# 默认命令
+CMD ["/bin/sh"]
