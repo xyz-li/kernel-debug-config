@@ -6,6 +6,7 @@
 - [目录结构](#目录结构)
 - [快速开始](#快速开始)
 - [准备工作](#准备工作)
+- [统一构建脚本详解](#统一构建脚本详解)
 - [两个构建服务](#两个构建服务)
 - [详细构建步骤](#详细构建步骤)
   - [方式一：使用 Docker Compose（推荐）](#方式一使用-docker-compose推荐)
@@ -36,11 +37,14 @@
 ├── Dockerfile                  # 内核编译环境
 ├── Dockerfile.initramfs        # Initramfs 构建环境
 ├── docker-compose.yml          # Docker Compose 配置
-├── build_kernel.sh             # 内核编译脚本
+├── build.sh                    # 🆕 统一构建脚本（推荐）
+├── build_kernel.sh             # 内核完整编译脚本（兼容）
+├── build_modules_only.sh       # 只编译模块脚本（兼容）
 ├── build_initramfs.sh          # Initramfs 构建脚本
 ├── configure_kernel.sh         # 内核配置脚本
 ├── verify_config.sh            # 配置验证脚本
 ├── minimal_debug.config        # 最小化调试配置
+├── BUILD_SCRIPT_GUIDE.md       # 🆕 统一构建脚本使用指南
 ├── docker2initramfs.sh         # Alpine rootfs 生成脚本（遗留）
 └── output/                     # 所有编译产物输出目录
     ├── Image                   # 内核镜像
@@ -58,6 +62,53 @@
 
 ## 快速开始
 
+### 使用统一构建脚本（推荐）
+
+新的 `build.sh` 脚本提供了灵活的构建选项，可以通过参数选择执行不同的构建步骤：
+
+```bash
+# 1. 构建 Docker 镜像
+docker-compose build
+
+# 2. 使用统一构建脚本
+# 2.1 完整构建（配置 + 内核 + 模块）
+docker-compose run --rm kernel-builder /scripts/build.sh --all
+
+# 2.2 只编译内核和模块（使用现有配置）
+docker-compose run --rm kernel-builder /scripts/build.sh -k -m
+
+# 2.3 只编译模块（最快，适合频繁修改模块）
+docker-compose run --rm kernel-builder /scripts/build.sh --modules
+
+# 2.4 重新配置并编译模块
+docker-compose run --rm kernel-builder /scripts/build.sh -c -m
+
+# 2.5 只编译内核镜像
+docker-compose run --rm kernel-builder /scripts/build.sh --kernel
+
+# 2.5 只编译模块
+docker-compose run --rm kernel-builder /scripts/build.sh -m
+
+# 2.7 强制重新配置（配合环境变量）
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh --all
+
+# 3. 构建 initramfs（包含 nft、网络工具等）
+docker-compose run --rm initramfs-builder /scripts/build_initramfs.sh
+```
+
+**build.sh 参数说明**:
+- `-c, --config`: 更新内核配置
+- `-k, --kernel`: 编译内核镜像
+- `-m, --modules`: 编译内核模块
+- `-a, --all`: 执行所有操作（config + kernel + modules）
+- `-h, --help`: 显示帮助信息
+
+**常用组合**:
+- `--all`: 首次构建或完整重新构建
+- `-k -m`: 代码修改后重新编译（保持配置不变）
+- `--modules`: 只修改了模块代码时使用（最快）
+- `-c -m`: 修改了模块配置后使用
+
 ### 完整构建流程（内核 + Initramfs）
 
 ```bash
@@ -65,10 +116,8 @@
 docker-compose build
 
 # 2. 编译内核和模块
-# 2.1 使用现有 config
-docker-compose run --rm kernel-builder /scripts/build_kernel.sh
-# 2.2 强制重新 config
-docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build_kernel.sh
+# 2.1 完整构建（配置 + 内核 + 模块）
+docker-compose run --rm kernel-builder /scripts/build.sh --all
 
 # 3. 构建 initramfs（包含 nft、网络工具等）
 docker-compose run --rm initramfs-builder /scripts/build_initramfs.sh
@@ -117,6 +166,128 @@ cp -r /path/to/your/kernel/source linux-source
 mkdir -p output/rootfs
 ```
 
+## 统一构建脚本详解
+
+### build.sh - 一个脚本，所有功能
+
+新的 `build.sh` 统一构建脚本将原有的 `build_kernel.sh`、`build_modules_only.sh` 和 `configure_kernel.sh` 的功能合并到一个脚本中，通过命令行参数灵活控制构建流程。
+
+### 核心特性
+
+✅ **模块化设计**: 三个独立的构建阶段（配置、内核、模块）可以任意组合
+✅ **灵活控制**: 只执行你需要的步骤，节省编译时间
+✅ **清晰输出**: 每个阶段都有详细的进度和状态信息
+✅ **错误检查**: 自动验证依赖和配置完整性
+✅ **向后兼容**: 旧脚本仍然可用
+
+### 可用参数
+
+| 参数 | 简写 | 功能 | 用途场景 |
+|------|------|------|---------|
+| `--config` | `-c` | 更新内核配置 | 修改了 minimal_debug.config |
+| `--kernel` | `-k` | 编译内核镜像 | 修改了内核核心代码 |
+| `--modules` | `-m` | 编译内核模块 | 修改了驱动或模块代码 |
+| `--all` | `-a` | 执行所有操作 | 首次构建或完整重新构建 |
+| `--help` | `-h` | 显示帮助信息 | 查看所有选项 |
+
+### 典型使用场景
+
+#### 场景 1: 首次构建
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh --all
+```
+
+#### 场景 2: 只修改了驱动模块代码（最常见）
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh --modules
+```
+⚡ **速度最快** - 跳过内核镜像编译，只编译模块
+
+#### 场景 3: 修改了内核核心代码
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh -k -m
+```
+编译内核和模块，跳过配置阶段
+
+#### 场景 4: 修改了内核配置文件
+```bash
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh -c -m
+```
+重新配置并编译模块（不编译内核镜像）
+
+#### 场景 5: 需要重新配置并完整构建
+```bash
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh --all
+```
+
+### 参数组合示例
+
+| 命令 | 执行内容 | 适用场景 |
+|------|---------|---------|
+| `--all` | 配置 + 内核 + 模块 | 首次构建 |
+| `-k -m` | 内核 + 模块 | 修改代码但不改配置 |
+| `--modules` | 只编译模块 | 只修改了模块代码 |
+| `--kernel` | 只编译内核 | 只修改了内核核心代码 |
+| `--config` | 只配置 | 验证配置是否正确 |
+| `-c -k` | 配置 + 内核 | 配置改变后编译内核 |
+| `-c -m` | 配置 + 模块 | 配置改变后编译模块 |
+| `-c -k -m` | 配置 + 内核 + 模块 | 等同于 `--all` |
+
+### 工作流程示例
+
+**开发驱动模块的典型工作流**:
+
+```bash
+# 1. 首次构建
+docker-compose run --rm kernel-builder /scripts/build.sh --all
+
+# 2. 修改驱动代码
+vim /path/to/driver.c
+
+# 3. 快速重新编译模块
+docker-compose run --rm kernel-builder /scripts/build.sh --modules
+
+# 4. 重新打包 initramfs
+docker-compose run --rm initramfs-builder /scripts/build_initramfs.sh
+
+# 5. 测试
+qemu-system-aarch64 ...
+```
+
+### 环境变量支持
+
+所有环境变量都与旧脚本兼容：
+
+```bash
+# 强制重新配置
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh --all
+
+# 复制 DTB 文件
+docker-compose run --rm -e COPY_DTB=yes kernel-builder /scripts/build.sh -k
+
+# 禁用调试构建
+docker-compose run --rm -e DEBUG_BUILD=no kernel-builder /scripts/build.sh -k -m
+
+# 修改并行任务数
+docker-compose run --rm -e JOBS=8 kernel-builder /scripts/build.sh --modules
+```
+
+### 与旧脚本的对应关系
+
+为了向后兼容，旧脚本仍然可用：
+
+| 旧脚本 | 新脚本等效命令 | 说明 |
+|--------|----------------|------|
+| `build_kernel.sh` | `build.sh --all` | 完整构建 |
+| `build_modules_only.sh` | `build.sh --modules` | 只编译模块 |
+| `configure_kernel.sh` | `build.sh --config` | 只配置 |
+
+**推荐**: 新项目直接使用 `build.sh`，获得更好的灵活性和控制力。
+
+### 详细文档
+
+更多使用细节和故障排除，请参阅 [BUILD_SCRIPT_GUIDE.md](BUILD_SCRIPT_GUIDE.md)
+
 ## 两个构建服务
 
 ### 1. kernel-builder
@@ -130,7 +301,14 @@ mkdir -p output/rootfs
 
 **使用**:
 ```bash
-docker-compose run --rm kernel-builder /scripts/build_kernel.sh
+# 推荐：使用统一构建脚本（灵活的参数控制）
+docker-compose run --rm kernel-builder /scripts/build.sh --all          # 完整构建
+docker-compose run --rm kernel-builder /scripts/build.sh -k -m          # 只编译内核和模块
+docker-compose run --rm kernel-builder /scripts/build.sh --modules      # 只编译模块（最快）
+
+# 兼容：使用独立脚本
+docker-compose run --rm kernel-builder /scripts/build_kernel.sh         # 完整构建
+docker-compose run --rm kernel-builder /scripts/build_modules_only.sh   # 只构建模块
 ```
 
 ### 2. initramfs-builder
@@ -472,6 +650,66 @@ htop
 ```
 
 ## 重新编译指南
+
+### 使用统一构建脚本（推荐）
+
+新的 `build.sh` 脚本提供了更灵活的构建控制，适合不同的使用场景：
+
+#### 场景 1: 只修改了模块代码（最快）
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh --modules
+```
+
+#### 场景 2: 修改了内核或模块代码，但配置未变
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh -k -m
+```
+
+#### 场景 3: 修改了配置文件，需要重新配置并编译
+```bash
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh --all
+```
+
+#### 场景 4: 只修改了配置并需要重新编译模块
+```bash
+docker-compose run --rm -e FORCE_RECONFIG=yes kernel-builder /scripts/build.sh -c -m
+```
+
+#### 场景 5: 只重新编译内核镜像
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh --kernel
+```
+
+### 查看帮助信息
+```bash
+docker-compose run --rm kernel-builder /scripts/build.sh --help
+```
+
+### 使用独立脚本（兼容方式）
+
+### 只重新编译模块（推荐，更快）
+
+如果你只修改了模块的源代码或配置（没有修改内核核心代码），可以使用更快的模块构建命令：
+
+```bash
+docker-compose run --rm kernel-builder /scripts/build_modules_only.sh
+```
+
+**优点**:
+- 只编译模块，跳过内核镜像编译
+- 编译速度更快
+- 自动重新生成模块依赖关系
+- 适用于频繁修改驱动或模块的场景
+
+**使用场景**:
+- 修改了某个驱动程序的代码
+- 在 .config 中启用/禁用了某些模块（=m）
+- 调试模块加载问题
+- 只需要更新 initramfs 中的模块
+
+**注意**: 此命令需要之前至少完整编译过一次内核（存在 .config 文件）
+
+### 完整重新编译
 
 ### 问题说明
 
@@ -842,13 +1080,32 @@ chmod +x etc/init.d/my-script
 ```
 
 ## 其它
-### 生成compile_commands.json
+
+### 构建脚本对照表
+
+项目提供了统一构建脚本 `build.sh` 和独立脚本，功能完全等效：
+
+| 功能 | 统一脚本 (build.sh) | 独立脚本 | 说明 |
+|------|-------------------|---------|------|
+| 完整构建 | `build.sh --all` | `build_kernel.sh` | 配置 + 内核 + 模块 |
+| 只编译内核 | `build.sh --kernel` | 需要手动操作 | 只编译内核镜像 |
+| 只编译模块 | `build.sh --modules` | `build_modules_only.sh` | 只编译模块 |
+| 内核+模块 | `build.sh -k -m` | 需要手动操作 | 跳过配置步骤 |
+| 重新配置 | `build.sh --config` | `configure_kernel.sh` | 只配置，不编译 |
+| 配置+模块 | `build.sh -c -m` | 需要组合脚本 | 适合修改模块配置 |
+| 查看帮助 | `build.sh --help` | - | 显示所有选项 |
+
+**推荐使用统一脚本** `build.sh`，它提供了更灵活的控制和更清晰的工作流程。
+
+## vscode跳转配置
+### 1. 使用常规方式build
+### 2. 生成compile_commands.json
 compile_commands.json 是一个标准化的数据库文件，记录了项目中每个源文件的编译命令。
 ```
 # 生成方式
 python3 scripts/clang-tools/gen_compile_commands.py
 ```
-### 生成 .clangd
+### 3. 配置 .clangd
 ```
 ---
 # clangd 配置文件 - 针对 Linux 内核优化

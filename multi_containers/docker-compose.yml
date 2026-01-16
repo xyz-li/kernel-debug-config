@@ -11,7 +11,7 @@ services:
       # 挂载 output 目录用于输出编译产物
       - ./output:/output:rw
       # 挂载辅助脚本（只读）
-      - ./build_kernel.sh:/scripts/build_kernel.sh:ro
+      - ./build.sh:/scripts/build.sh:ro
       - ./configure_kernel.sh:/scripts/configure_kernel.sh:ro
       - ./minimal_debug.config:/scripts/minimal_debug.config:ro
     environment:
