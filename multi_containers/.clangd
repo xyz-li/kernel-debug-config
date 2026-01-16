@@ -1,0 +1,91 @@
+
+---
+# clangd 配置文件 - 针对 Linux 内核优化
+
+CompileFlags:
+  # 移除 clangd 不支持的 GCC 编译选项
+  Remove:
+    # GCC 特定的栈和分支选项
+    - -mpreferred-stack-boundary=*
+    - -mindirect-branch=*
+    - -mindirect-branch-register
+    - -maccumulate-outgoing-args
+    - -mrecord-mcount
+    - -mfentry
+    - -mstack-protector-guard=*
+    - -mstack-protector-guard-reg=*
+    - -mstack-protector-guard-offset=*
+
+    # GCC 优化选项 clangd 不识别的
+    - -fconserve-stack
+    - -fno-allow-store-data-races
+    - -fno-reorder-blocks
+    - -fno-ipa-cp-clone
+    - -fno-partial-inlining
+    - -fno-stack-check
+    - -fno-builtin-wcslen
+    - -ftrivial-auto-var-init=*
+    - -fpatchable-function-entry=*
+    - -falign-functions=*
+    - -fstrict-flex-arrays=*
+
+    # 移除 ARM64 特定选项
+    - -mgeneral-regs-only
+    - -mabi=*
+    - -mbranch-protection=*
+    - -Wa,-march=*
+
+    # 移除参数选项
+    - --param=*
+
+    # 移除部分警告选项以减少干扰
+    - -Wframe-larger-than=*
+    - -Wimplicit-fallthrough=*
+    - -Wno-dangling-pointer
+    - -Wno-alloc-size-larger-than
+    - -Wno-stringop-overflow
+    - -Wno-array-bounds
+    - -Wno-format-overflow
+    - -Wno-format-truncation
+    - -Wno-stringop-truncation
+    - -Wno-maybe-uninitialized
+
+  # 添加 clangd 需要的选项
+  Add:
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+    - -ferror-limit=0
+    # 指定目标架构为 ARM64
+    - --target=aarch64-linux-gnu
+
+Index:
+  # 启用后台索引
+  Background: Build
+
+  # 索引标准库
+  # StandardLibrary: No
+
+Diagnostics:
+  # 禁用 clang-tidy 以提高性能
+  ClangTidy:
+    Remove: '*'
+
+  # 减少不必要的诊断信息
+  UnusedIncludes: None
+  # MissingIncludes: None
+
+  # 抑制某些警告
+  Suppress:
+    - -Wunused-*
+    - -Wmissing-*
+
+Hover:
+  ShowAKA: Yes
+
+InlayHints:
+  Enabled: No
+  ParameterNames: No
+  DeducedTypes: No
+
+Completion:
+  AllScopes: Yes

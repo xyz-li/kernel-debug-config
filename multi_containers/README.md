@@ -1135,6 +1135,7 @@ CompileFlags:
     - -ftrivial-auto-var-init=*
     - -fpatchable-function-entry=*
     - -falign-functions=*
+    - -fstrict-flex-arrays=*
 
     # 移除 ARM64 特定选项
     - -mgeneral-regs-only
@@ -1170,7 +1171,7 @@ Index:
   Background: Build
 
   # 索引标准库
-  StandardLibrary: No
+  # StandardLibrary: No
 
 Diagnostics:
   # 禁用 clang-tidy 以提高性能
@@ -1179,7 +1180,7 @@ Diagnostics:
 
   # 减少不必要的诊断信息
   UnusedIncludes: None
-  MissingIncludes: None
+  # MissingIncludes: None
 
   # 抑制某些警告
   Suppress:
