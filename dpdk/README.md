@@ -35,6 +35,7 @@ cpu {
 }
 
 plugins {
+  # dpdk plugin dir
   path /root/vpp/build-root/install-vpp_debug-native/vpp/lib/aarch64-linux-gnu/vpp_plugins/
   plugin dpdk_plugin.so { enable }
   plugin unittest_plugin.so { enable }
