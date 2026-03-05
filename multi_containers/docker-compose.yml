@@ -7,7 +7,7 @@ services:
     container_name: kernel-builder
     volumes:
       # 挂载内核源码目录（根据实际情况调整）
-      - /Volumes/linux/linux-6.12.63:/kernel:rw
+      - /Volumes/linux/linux-6.12.65:/kernel:rw
       # 挂载 output 目录用于输出编译产物
       - ./output:/output:rw
       # 挂载辅助脚本（只读）

@@ -1,0 +1,85 @@
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: bgp-advertisements-vip
+  labels:
+    advertise: bgp-vip
+spec:
+  advertisements:
+  - advertisementType: Service
+    service:
+      addresses:
+      - ExternalIP
+    selector:                     # <-- select Services to advertise
+      matchExpressions:
+        - { key: app, operator: In, values: [ nginx ] }
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: bgp-advertisements-pods
+  labels:
+    advertise: bgp-pods
+spec:
+  advertisements:
+  - advertisementType: "PodCIDR"
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: ibgp-peer-vip
+spec:
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: "bgp-vip"
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: ibgp-peer-pods
+spec:
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: "bgp-pods"
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp-rack0
+spec:
+  nodeSelector:
+    matchLabels:
+      rack: rack0
+  bgpInstances:
+  - name: "instance-65010"
+    localASN: 65010
+    peers:
+    - name: "peer-65010-tor0"
+      peerASN: 65010
+      peerAddress: "10.0.0.1"
+      peerConfigRef:
+        name: ibgp-peer-pods
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp-rack1
+spec:
+  nodeSelector:
+    matchLabels:
+      rack: rack1
+  bgpInstances:
+  - name: "instance-65011"
+    localASN: 65011
+    peers:
+    - name: "peer-65011-tor1"
+      peerASN: 65011
+      peerAddress: "10.0.0.2"
+      peerConfigRef:
+        name: ibgp-peer-vip
