@@ -14,6 +14,8 @@ topology:
       - iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
       - ip addr add 10.0.0.0/32 dev lo
       - ip route add blackhole 10.0.0.0/8
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
       - touch /etc/frr/vtysh.conf
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
       - usr/lib/frr/frrinit.sh start
@@ -35,6 +37,7 @@ topology:
          -c 'router bgp 65000'
          -c ' bgp router-id 10.0.0.0'
          -c ' no bgp ebgp-requires-policy'
+         -c ' bgp bestpath as-path multipath-relax'
          -c ' neighbor ROUTERS peer-group'
          -c ' neighbor ROUTERS remote-as external'
          -c ' neighbor ROUTERS default-originate'
@@ -42,13 +45,14 @@ topology:
          -c ' neighbor net1 interface peer-group ROUTERS'
          -c ' address-family ipv4 unicast'
          -c '   redistribute connected'
+         -c '   maximum-paths 64'
          -c ' exit-address-family'
          -c '!'
             
           
     tor0:
       kind: linux
-      image: frrouting/frr:v8.4.0  
+      image: frrouting/frr:v8.4.0
       labels:
         app: frr
       exec:
@@ -56,6 +60,8 @@ topology:
       - ip addr add 10.0.0.1/32 dev lo
       - ip addr add 10.0.1.1/24 dev net1
       - ip addr add 10.0.2.1/24 dev net2
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
       - touch /etc/frr/vtysh.conf
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
       - /usr/lib/frr/frrinit.sh start
@@ -78,6 +84,7 @@ topology:
          -c 'router bgp 65010'
          -c ' bgp router-id 10.0.0.1'
          -c ' no bgp ebgp-requires-policy'
+         -c ' bgp bestpath as-path multipath-relax'
          -c ' neighbor ROUTERS peer-group'
          -c ' neighbor ROUTERS remote-as external'
          -c ' neighbor SERVERS peer-group'
@@ -87,6 +94,8 @@ topology:
          -c ' neighbor 10.0.2.2 peer-group SERVERS'
          -c ' address-family ipv4 unicast'
          -c '   redistribute connected'
+         -c '   maximum-paths 64'
+         -c '   maximum-paths ibgp 64'
          -c '  exit-address-family'
          -c '!'
 
@@ -100,6 +109,8 @@ topology:
       - ip addr add 10.0.0.2/32 dev lo
       - ip addr add 10.0.3.1/24 dev net1
       - ip addr add 10.0.4.1/24 dev net2
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
       - touch /etc/frr/vtysh.conf
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
       - /usr/lib/frr/frrinit.sh start
@@ -118,10 +129,14 @@ topology:
         done'
       - >-
          vtysh -c 'conf t'
+         -c 'zebra nexthop kernel enable'
+         -c 'nexthop-group zebra'
+         -c 'resilient buckets 64 idle-timer 100 unbalanced-timer 100'
          -c 'frr defaults datacenter'
          -c 'router bgp 65011'
          -c ' bgp router-id 10.0.0.2'
          -c ' no bgp ebgp-requires-policy'
+         -c ' bgp bestpath as-path multipath-relax'
          -c ' neighbor ROUTERS peer-group'
          -c ' neighbor ROUTERS remote-as external'
          -c ' neighbor SERVERS peer-group'
@@ -131,6 +146,8 @@ topology:
          -c ' neighbor 10.0.4.2 peer-group SERVERS'
          -c ' address-family ipv4 unicast'
          -c '   redistribute connected'
+         -c '   maximum-paths 64'
+         -c '   maximum-paths ibgp 64'
          -c '  exit-address-family'
          -c '!'      
     
@@ -141,6 +158,8 @@ topology:
       exec:
       - ip addr add 10.0.1.2/24 dev net0
       - ip route replace default via 10.0.1.1
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
 
     server1:
       kind: linux
@@ -149,6 +168,8 @@ topology:
       exec:
       - ip addr add 10.0.2.2/24 dev net0
       - ip route replace default via 10.0.2.1
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
 
     server2:
       kind: linux
@@ -157,7 +178,9 @@ topology:
       exec:
       - ip addr add 10.0.3.2/24 dev net0
       - ip route replace default via 10.0.3.1
-      - ip link add cilium-ext0 type dummy 
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
+      - ip link add cilium-ext0 type dummy
       - ip addr add 10.100.0.1/24 dev cilium-ext0   # 需要将 10.100.0.1/24 地址设置到cilium-ext0, 用于引流，否则所有VIP的流量都会被kernel抛弃,到达主机之后,由cilium bpf进行后端映射. 由cilium 将VIP路由宣告到bgp peer
       - ip link set dev cilium-ext0 up
 
@@ -168,6 +191,8 @@ topology:
       exec:
       - ip addr add 10.0.4.2/24 dev net0
       - ip route replace default via 10.0.4.1
+      - sysctl -w net.ipv4.fib_multipath_hash_policy=1
+      - sysctl -w net.ipv4.fib_multipath_use_neigh=1
       - ip link add cilium-ext0 type dummy
       - ip addr add 10.100.0.1/24 dev cilium-ext0
       - ip link set dev cilium-ext0 up
