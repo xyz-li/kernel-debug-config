@@ -23,6 +23,8 @@ RUN apt-get update  --allow-unauthenticated && apt-get install  --allow-unauthen
     xz-utils \
     curl \
     ca-certificates \
+    gdb-multiarch \
+    qemu-system-arm \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置工作目录

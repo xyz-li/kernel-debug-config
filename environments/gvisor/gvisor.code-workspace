@@ -1,0 +1,9 @@
+{
+  "folders": [
+    {"name": "gvisor-debug", "path": "."},
+    {"name": "gvisor-source", "path": "../../../gvisor"}
+  ],
+  "settings": {
+    "debug.allowBreakpointsEverywhere": true
+  }
+}

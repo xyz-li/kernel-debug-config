@@ -1,5 +1,17 @@
 # Linux 内核 Docker 编译环境使用指南
 
+## VSCode 工作区快速开始
+
+本目录提供独立的 [`multi-containers.code-workspace`](multi-containers.code-workspace)，同时打开配置与默认的 `linux-source/`。源码在其他位置时，从本仓库根目录执行：
+
+```bash
+python3 vscode/kernel_workspace.py multi_containers /path/to/linux
+```
+
+在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `multi_containers/output/debug.local.code-workspace`。安装 C/C++ 扩展，依次运行任务 **Kernel: Build Docker images → Kernel: Full build → Kernel: Start QEMU**，再选择 `Kernel: Connect to QEMU (Docker GDB)` 并按 F5。首次或使用旧编译镜像时，请先重建镜像以安装新增的 QEMU 和 GDB。
+
+内核编译、QEMU 和 GDB 在 `kernel-builder` 中运行，initramfs 在 `initramfs-builder` 中生成；断点设在 `kernel-source` 中，GDB 自动停在 `start_kernel`。完整步骤、任意源码路径绑定及任务列表见 [Linux 内核工作区指南](../vscode/README.md)。
+
 ## 目录
 
 - [项目概述](#项目概述)

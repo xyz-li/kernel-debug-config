@@ -1,5 +1,6 @@
 {
   "version": "2.0.0",
+  "options": {"cwd": "${workspaceFolder}"},
   "tasks": [
     {"label": "FC: Create Ubuntu Host", "type": "shell", "command": "./dev.sh host-create", "problemMatcher": []},
     {"label": "FC: Import existing artifacts", "type": "shell", "command": "./dev.sh import", "problemMatcher": []},

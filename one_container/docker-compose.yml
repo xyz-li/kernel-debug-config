@@ -16,6 +16,7 @@ services:
       - ./output:/output:rw
       # 挂载辅助脚本（只读）
       - ./build_kernel.sh:/scripts/build_kernel.sh:ro
+      - ./minimal_debug.config:/scripts/minimal_debug.config:ro
     environment:
       # 设置架构（可选：arm64, arm, x86_64）
       - ARCH=arm64

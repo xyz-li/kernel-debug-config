@@ -3,6 +3,7 @@ import base64
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -56,6 +57,10 @@ class BindingTests(unittest.TestCase):
                 self.assertEqual((directory / '.env').stat().st_mode & 0o777, 0o600)
                 workspace = json.loads((directory / 'output/debug.local.code-workspace').read_text())
                 self.assertEqual(workspace['folders'][1]['path'], str(source.resolve()))
+                self.assertEqual([folder['name'] for folder in workspace['folders']],
+                                 [f'{kind}-debug', f'{kind}-source'])
+                self.assertEqual((directory / 'output' / workspace['folders'][0]['path']).resolve(),
+                                 directory.resolve())
                 self.assertEqual((source / marker).read_text(), 'fixture\n')
 
     def test_invalid_checkout_does_not_write_configuration(self):
@@ -83,6 +88,65 @@ class BindingTests(unittest.TestCase):
                 if pipe:
                     wrapper = pipe['pipeProgram'].replace('${workspaceFolder}', str(ROOT / kind))
                     self.assertTrue(Path(wrapper).is_file(), wrapper)
+
+    def test_f5_task_dependencies_build_before_launch_and_preserve_attach_symbols(self):
+        for kind in ('fc', 'gvisor', 'kata'):
+            directory = ROOT / kind
+            tasks_file = json.loads((directory / '.vscode/tasks.json').read_text())
+            tasks = {task['label']: task for task in tasks_file['tasks']}
+
+            def commands(label, ancestors=()):
+                self.assertNotIn(label, ancestors, f'Task dependency cycle: {ancestors} -> {label}')
+                self.assertIn(label, tasks)
+                task = tasks[label]
+                dependencies = task.get('dependsOn', [])
+                if isinstance(dependencies, str):
+                    dependencies = [dependencies]
+                if len(dependencies) > 1:
+                    self.assertEqual(task.get('dependsOrder'), 'sequence', label)
+                result = []
+                for dependency in dependencies:
+                    result.extend(commands(dependency, ancestors + (label,)))
+                if 'command' in task:
+                    options = dict(tasks_file.get('options', {}), **task.get('options', {}))
+                    self.assertEqual(options.get('cwd'), '${workspaceFolder}', label)
+                    result.append(task['command'])
+                return result
+
+            for label in tasks:
+                commands(label)
+            launch = json.loads((directory / '.vscode/launch.json').read_text())
+            for config in launch['configurations']:
+                chain = commands(config['preLaunchTask']) if 'preLaunchTask' in config else []
+                if config['request'] == 'attach':
+                    self.assertFalse(any(command.startswith('./dev.sh build') for command in chain), config['name'])
+                    if kind == 'gvisor':
+                        self.assertEqual(chain, ['./dev.sh dap'])
+                    continue
+                self.assertTrue(chain and chain[0].startswith('./dev.sh build'), config['name'])
+                if kind == 'gvisor':
+                    self.assertEqual(chain, ['./dev.sh build', './dev.sh dap'])
+                    dap = tasks['gVisor: Start Delve DAP']
+                    self.assertTrue(dap['isBackground'])
+                    ready = dap['problemMatcher']['background']['endsPattern']
+                    self.assertRegex('DAP server listening at: 127.0.0.1:38697', ready)
+                    self.assertIsNone(re.search(ready, 'DAP bridge listening at 127.0.0.1:38697'))
+                if config['name'] == 'Kata: Standalone Agent RPC':
+                    self.assertEqual(chain, ['./dev.sh build agent', './dev.sh bundle'])
+                if config['name'] == 'Kata: shim-ctl real VM':
+                    self.assertEqual(chain, ['./dev.sh build runtime', './dev.sh bundle', './dev.sh vm-check'])
+
+    def test_public_workspaces_resolve_configuration_and_named_source_folders(self):
+        for kind, filename, checkout in [('fc', 'firecracker', 'firecracker'),
+                                         ('gvisor', 'gvisor', 'gvisor'), ('kata', 'kata', 'kata-containers')]:
+            directory = ROOT / kind
+            workspace = json.loads((directory / f'{filename}.code-workspace').read_text())
+            folders = {folder['name']: (directory / folder['path']).resolve() for folder in workspace['folders']}
+            self.assertEqual(folders[f'{kind}-debug'], directory)
+            self.assertEqual(folders[f'{kind}-source'], ROOT.parent.parent / checkout)
+            launch = (directory / '.vscode/launch.json').read_text()
+            for name in re.findall(r'\$\{workspaceFolder:([^}]+)\}', launch):
+                self.assertIn(name, folders)
 
 
 if __name__ == '__main__':

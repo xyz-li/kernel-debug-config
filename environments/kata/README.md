@@ -6,11 +6,13 @@
 # 在本配置仓库根目录执行
 ./environments/kata/dev.sh bind /path/to/kata-containers
 ./environments/kata/dev.sh setup
-./environments/kata/dev.sh build all
-# 也可分别 build runtime / build agent
 ```
 
-VSCode 打开 `environments/kata/output/debug.local.code-workspace`，安装 C/C++ 扩展。选择 `Kata: Rust shim entry` 或 `Kata: Agent entry` 后 F5，自动停在对应 Rust main。入口配置使用 `--help`，便于先验证源码、符号、调用栈和单步链路。
+在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `environments/kata/output/debug.local.code-workspace`，安装 C/C++ 扩展。源码使用默认同级 `kata-containers` 目录时，也可打开 [`kata.code-workspace`](kata.code-workspace)。工作区包含 `kata-debug` 和 `kata-source`，断点设在后者。
+
+选择 `Kata: Rust shim entry` 后 F5，会先在 Ubuntu Host 编译 runtime-rs / shim-ctl；选择 `Kata: Agent entry` 则先编译 Agent / agent-ctl。编译成功后启动 Linux GDB，自动停在对应 Rust main。入口配置使用 `--help`，便于先验证源码、符号、调用栈和单步链路。
+
+修改源码后保存文件、停止当前会话，再按 F5 即可增量构建和调试。首次需先完成 `setup`；手工构建可执行 `dev.sh build all`，也可分别 `build runtime` / `build agent`。Attach 配置连接运行中进程，使用对应的现有二进制和符号。
 
 `build` 读取上游 `rust-toolchain.toml`，编译用户绑定的源码，输出在 `environments/kata/bin/`，不替换系统安装的 Kata 二进制。该配置针对 Linux Host 的源码调试；生成的 GNU Agent 不能直接当作无 glibc 的 Guest 静态 Agent 镜像使用。Guest 打包需按 [上游 Agent 指南](https://github.com/kata-containers/kata-containers/blob/main/src/agent/README.md)单独构建 musl 产物。
 
@@ -18,13 +20,7 @@ VSCode 打开 `environments/kata/output/debug.local.code-workspace`，安装 C/C
 
 ## 调试真实 Agent RPC
 
-Kata Agent 可在开发 Linux VM 中以普通进程运行，使用独立的 Unix abstract socket。先创建最小 OCI bundle：
-
-```bash
-./environments/kata/dev.sh bundle
-```
-
-选择 VSCode 的 `Kata: Standalone Agent RPC`，F5 命中 main，再 F5 继续。在另一个终端执行：
+Kata Agent 可在开发 Linux VM 中以普通进程运行，使用独立的 Unix abstract socket。选择 VSCode 的 `Kata: Standalone Agent RPC`，F5 会先编译 Agent / agent-ctl，再创建最小 OCI bundle，随后启动 GDB 并命中 main；再次 F5 继续。在另一个终端执行：
 
 ```bash
 ./environments/kata/dev.sh agent-check
@@ -43,7 +39,7 @@ KATA_CONFIG=/path/to/complete/rendered-configuration.toml
 KATA_BUNDLE=/var/tmp/kata-debug/bundle
 ```
 
-先运行 `./environments/kata/dev.sh vm-check`，再选择 `Kata: shim-ctl real VM`，或者执行 `./environments/kata/dev.sh vm`。VSCode 也会自动检查资产和设备。在 runtime-rs 的 resource、hypervisor、agent 客户端代码中设置断点。`KATA_CONFIG` 缺失时脚本会报错，不会伪造 Guest 资产。更改 `KATA_BUNDLE` 后，同步调整 VSCode 的 `cwd`。
+选择 `Kata: shim-ctl real VM` 后 F5，启动前任务依次编译 runtime / shim-ctl、创建 OCI bundle、检查 VM 资产和设备，通过后才启动 GDB。在 runtime-rs 的 resource、hypervisor、agent 客户端代码中设置断点。也可手工执行 `dev.sh build runtime`、`dev.sh bundle`、`dev.sh vm-check`，再通过 `dev.sh vm` 启动。`KATA_CONFIG` 缺失时脚本会报错，不会伪造 Guest 资产。更改 `KATA_BUNDLE` 后，同步调整 VSCode 的 `cwd`。
 
 已检查的 Host 有 `/dev/kvm`，但没有 `/dev/vhost-vsock`。QEMU 的 Kata VM 路径需要启用 `CONFIG_VHOST_VSOCK` 并提供该设备；也可以选择 Kata 的 Firecracker 或 Cloud Hypervisor hybrid-vsock 后端，它们通过 Unix Socket 通信。后端差异见 [upstream Agent 控制工具说明](https://github.com/kata-containers/kata-containers/blob/main/src/tools/agent-ctl/README.md#cloud-hypervisor-and-firecracker)。修改 Host 内核需要重启 machine，不会由配置脚本自动执行。
 

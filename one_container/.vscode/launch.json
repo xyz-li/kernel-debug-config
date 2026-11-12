@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Kernel: Connect to QEMU (Docker GDB)",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "/output/vmlinux",
+      "cwd": "/kernel",
+      "MIMode": "gdb",
+      "miDebuggerServerAddress": "127.0.0.1:1234",
+      "preLaunchTask": "Kernel: Start build container",
+      "launchCompleteCommand": "exec-continue",
+      "pipeTransport": {
+        "pipeProgram": "docker",
+        "pipeCwd": "${workspaceFolder:kernel-config}",
+        "pipeArgs": [
+          "compose",
+          "-f",
+          "${workspaceFolder:kernel-config}/docker-compose.yml",
+          "exec",
+          "-T",
+          "kernel-dev",
+          "sh",
+          "-c"
+        ],
+        "debuggerPath": "/usr/bin/gdb-multiarch",
+        "pipeEnv": {
+          "KERNEL_SOURCE": "${workspaceFolder:kernel-source}"
+        },
+        "quoteArgs": true
+      },
+      "sourceFileMap": {
+        "/kernel": "${workspaceFolder:kernel-source}"
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        }
+      ],
+      "postRemoteConnectCommands": [
+        {
+          "text": "-break-insert -h -f start_kernel",
+          "description": "Stop at start_kernel after continuing the paused QEMU"
+        }
+      ]
+    }
+  ]
+}

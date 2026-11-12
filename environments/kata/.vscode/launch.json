@@ -3,6 +3,7 @@
   "configurations": [
     {
       "name": "Kata: Rust shim entry",
+      "preLaunchTask": "Kata: Build runtime",
       "type": "cppdbg",
       "request": "launch",
       "targetArchitecture": "arm64",
@@ -33,6 +34,7 @@
     },
     {
       "name": "Kata: Agent entry",
+      "preLaunchTask": "Kata: Build agent",
       "type": "cppdbg",
       "request": "launch",
       "targetArchitecture": "arm64",
@@ -88,7 +90,7 @@
           "text": "-break-insert -f kata_agent::main"
         }
       ],
-      "preLaunchTask": "Kata: Create OCI bundle"
+      "preLaunchTask": "Kata: Prepare Agent RPC"
     },
     {
       "name": "Kata: shim-ctl real VM",
@@ -117,7 +119,7 @@
           "text": "-break-insert -f shim_ctl::main"
         }
       ],
-      "preLaunchTask": "Kata: Validate VM assets"
+      "preLaunchTask": "Kata: Prepare VM debug"
     },
     {
       "name": "Kata: Attach Rust shim (Linux PID)",

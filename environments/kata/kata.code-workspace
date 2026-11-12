@@ -1,0 +1,9 @@
+{
+  "folders": [
+    {"name": "kata-debug", "path": "."},
+    {"name": "kata-source", "path": "../../../kata-containers"}
+  ],
+  "settings": {
+    "debug.allowBreakpointsEverywhere": true
+  }
+}

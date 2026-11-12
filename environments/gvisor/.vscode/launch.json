@@ -17,6 +17,7 @@
         }
       ],
       "name": "gVisor: Launch runsc (remote Delve)",
+      "preLaunchTask": "gVisor: Prepare launch",
       "request": "launch",
       "mode": "exec",
       "program": "${workspaceFolder}/bin/runsc",
@@ -41,6 +42,7 @@
         }
       ],
       "name": "gVisor: Run sandbox (remote Delve)",
+      "preLaunchTask": "gVisor: Prepare launch",
       "request": "launch",
       "mode": "exec",
       "program": "${workspaceFolder}/bin/runsc",
@@ -70,6 +72,7 @@
         }
       ],
       "name": "gVisor: Attach Sentry or Gofer (Linux PID)",
+      "preLaunchTask": "gVisor: Start Delve DAP",
       "request": "attach",
       "mode": "local",
       "processId": "${input:linuxPid}"

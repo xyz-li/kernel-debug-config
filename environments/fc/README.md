@@ -48,10 +48,40 @@ next
 continue
 ```
 
-用 VSCode 打开 `firecracker.code-workspace`（同时显示本目录和 Firecracker 源码），安装建议的 C/C++ 扩展。两种方式：
+### 在 VSCode 中“从文件打开工作区”
 
-1. **从入口启动**：先完成 `./dev.sh build`，选择 `FC: Launch on Ubuntu Host (macOS)` 并按 F5。调试器自动准备磁盘、TAP/NAT，再启动 FC，停在 `firecracker::main`；继续后启动 Guest。停止调试会清理本次网络资源。
+`.code-workspace` 文件记录需要一起打开的目录和工作区设置。通过“从文件打开工作区”加载后，VSCode 会同时显示调试配置与 Firecracker 源码，并加载配置目录中的调试选项。
+
+先在本配置仓库根目录绑定已经 clone 的 Firecracker 源码：
+
+```bash
+./environments/fc/dev.sh bind /path/to/firecracker
+```
+
+然后在 VSCode 中操作：
+
+1. 选择菜单 **文件（File）→ 从文件打开工作区（Open Workspace from File…）**。
+2. 选择本仓库中的 `environments/fc/output/debug.local.code-workspace`。
+3. 确认左侧资源管理器出现两个目录：`fc-debug` 是调试脚本和配置，`fc-source` 是绑定的 Firecracker 源码。断点设置在 `fc-source` 中。
+4. 安装建议的 **C/C++** 扩展，在“运行和调试”中选择下方相应配置，再按 F5。
+
+macOS 也可以从本配置仓库根目录用终端打开同一个工作区：
+
+```bash
+open -a "Visual Studio Code" \
+  environments/fc/output/debug.local.code-workspace
+```
+
+生成的工作区保存在被 Git 忽略的 `output/` 中；更换源码目录后重新执行 `bind`，再打开生成的工作区。若采用默认的同级源码目录布局，也可以通过上述菜单打开 `environments/fc/firecracker.code-workspace`。
+
+两种调试方式：
+
+1. **从入口启动**：完成首次 Host/Guest 准备和 `./dev.sh setup` 后，选择 `FC: Launch on Ubuntu Host (macOS)` 并按 F5。`preLaunchTask: "FC: Build"` 自动在 Ubuntu Host 编译 FC；成功后调试器准备磁盘、TAP/NAT，再启动 FC，停在 `firecracker::main`。继续后启动 Guest；停止调试会清理本次网络资源。
 2. **连接运行中的实例**：先运行 `./dev.sh run`，选择 `FC: Remote attach to Ubuntu Host (macOS)`，输入启动输出中的 **Linux Firecracker PID**。Linux 原生环境使用 `FC: Attach locally (Linux)`。
+
+F5 的执行链路：VSCode → `FC: Build` task → `./dev.sh build` → `container machine run -n fc-ubuntu` → Ubuntu 中的 Cargo → `bin/firecracker-debug` → Linux GDB。源码由 home-mount 共享，编译器与构建缓存位于 Ubuntu 的 `WORKDIR`，macOS 不运行 Cargo。machine 名可通过 `.env` 的 `MACHINE` 修改。
+
+修改源码后保存文件，停止当前会话，再按 F5，任务会执行增量构建。构建输出见 VSCode 的任务终端；失败时先修复错误，避免选择“仍然调试”继续使用旧二进制。Attach 不执行构建，以保留运行中进程对应的符号。命令行的 `./dev.sh debug` 仍使用已有产物，需要时先手动执行 `./dev.sh build`。
 
 `gdb-pipe.sh` 根据同一份 `config.sh` / `.env` 选择 machine，使用 Apple Container 的标准输入输出连接 Ubuntu GDB，不需要 SSH 服务、SSH Key 或 GDB TCP 监听端口。它实现 VSCode C/C++ 扩展的 [pipeTransport](https://code.visualstudio.com/docs/cpp/pipe-transport)。如果修改 `WORKDIR`，同步更新 Launch 配置中的两个 `/var/tmp/fc-debug-config` 路径。
 

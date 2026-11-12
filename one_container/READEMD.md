@@ -2,6 +2,8 @@
 
 本文档介绍如何使用容器化环境进行 Linux 内核编译、initramfs 生成和 VSCode Remote 调试。
 
+现已提供可直接打开的 [`one-container.code-workspace`](one-container.code-workspace)。推荐先阅读 [workspace 快速开始](README.md)或[完整工作区指南](../vscode/README.md)，无需把调试配置复制到内核源码目录。下文保留原有的命令行及 Dev Containers 使用方式。
+
 ## 架构概览
 
 ```

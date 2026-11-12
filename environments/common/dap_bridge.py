@@ -24,10 +24,10 @@ with socket.socket() as server:
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(('127.0.0.1', port))
     server.listen(1)
+    print(f'DAP bridge listening at 127.0.0.1:{port}; waiting for Linux Delve.', flush=True)
     remote = subprocess.Popen(argv)
     connector = None
     try:
-        print(f'DAP ready at 127.0.0.1:{port}; select a gVisor VSCode configuration and press F5.', flush=True)
         server.settimeout(1)
         while True:
             try:

@@ -1,0 +1,130 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder:kernel-config}",
+    "env": {
+      "KERNEL_SOURCE": "${workspaceFolder:kernel-source}"
+    }
+  },
+  "tasks": [
+    {
+      "label": "Kernel: Build Docker images",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "build"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Kernel: Start build container",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "up",
+        "-d",
+        "kernel-builder"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Kernel: Build kernel",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "exec",
+        "-T",
+        "kernel-builder",
+        "/scripts/build.sh",
+        "--all"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "Kernel: Start build container",
+      "group": "build"
+    },
+    {
+      "label": "Kernel: Build initramfs",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "run",
+        "--rm",
+        "-T",
+        "initramfs-builder",
+        "/scripts/build_initramfs.sh"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Kernel: Full build",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Kernel: Build kernel",
+        "Kernel: Build initramfs"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Kernel: Start QEMU",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "exec",
+        "-T",
+        "kernel-builder",
+        "qemu-system-aarch64",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a57",
+        "-m",
+        "2G",
+        "-smp",
+        "2",
+        "-kernel",
+        "/output/Image",
+        "-initrd",
+        "/output/initramfs.cpio.gz",
+        "-append",
+        "console=ttyAMA0 nokaslr",
+        "-nographic",
+        "-gdb",
+        "tcp:127.0.0.1:1234",
+        "-S"
+      ],
+      "problemMatcher": [],
+      "dependsOn": "Kernel: Start build container",
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Stop build container",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "-f",
+        "${workspaceFolder:kernel-config}/docker-compose.yml",
+        "stop",
+        "kernel-builder"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

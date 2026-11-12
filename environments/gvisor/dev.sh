@@ -57,7 +57,7 @@ Usage: ./dev.sh COMMAND
   setup          Install Ubuntu dependencies, official Go, Delve and Bazelisk
   doctor         Check source and tools
   build          Bazel debug build of //:release, including gvisor-bin sidecars
-  dap            Start Linux Delve DAP and macOS loopback forwarding (then F5)
+  dap            Start Linux Delve DAP and macOS loopback forwarding (also started by F5)
   run ARGS...    Run the built runsc with an isolated state directory
   ps             Show Linux Sentry/Gofer PIDs for attaching
 EOF

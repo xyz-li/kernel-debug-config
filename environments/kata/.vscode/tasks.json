@@ -14,6 +14,7 @@
       "label": "Kata: Build all",
       "type": "shell",
       "command": "./dev.sh build all",
+      "group": "build",
       "problemMatcher": [],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -45,6 +46,18 @@
       "options": {
         "cwd": "${workspaceFolder}"
       }
+    },
+    {
+      "label": "Kata: Prepare Agent RPC",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Kata: Build agent", "Kata: Create OCI bundle"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Kata: Prepare VM debug",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Kata: Build runtime", "Kata: Create OCI bundle", "Kata: Validate VM assets"],
+      "problemMatcher": []
     },
     {
       "label": "Kata: Check Agent RPC",
