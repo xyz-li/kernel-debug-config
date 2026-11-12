@@ -321,7 +321,7 @@ qemu-system-aarch64 \
 
 - [ ] 已安装 Docker 和 Docker Compose
 - [ ] 已安装 VSCode + Dev Containers 扩展
-- [ ] 已克隆内核源码到 `/Volumes/linux/linux-6.12.63`
+- [ ] 已克隆内核源码，并设置 `KERNEL_SOURCE` 指向该目录
 - [ ] 已构建 Docker 镜像：`docker compose build`
 - [ ] 已启动容器：`docker compose up -d kernel-dev`
 - [ ] VSCode 已连接到 `kernel-dev` 容器
@@ -355,7 +355,7 @@ qemu-system-aarch64 \
 ## 项目文件结构
 
 ```
-/Users/qmk/project/linux/
+/path/to/kernel-debug-config/
 ├── Dockerfile                    # 内核开发容器镜像
 ├── Dockerfile.initramfs          # initramfs 构建容器镜像
 ├── docker-compose.yml            # 容器编排配置

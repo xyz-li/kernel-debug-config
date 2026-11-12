@@ -1,0 +1,68 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Kata: Setup",
+      "type": "shell",
+      "command": "./dev.sh setup",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Build all",
+      "type": "shell",
+      "command": "./dev.sh build all",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Build runtime",
+      "type": "shell",
+      "command": "./dev.sh build runtime",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Build agent",
+      "type": "shell",
+      "command": "./dev.sh build agent",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Create OCI bundle",
+      "type": "shell",
+      "command": "./dev.sh bundle",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Check Agent RPC",
+      "type": "shell",
+      "command": "./dev.sh agent-check",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Kata: Validate VM assets",
+      "type": "shell",
+      "command": "./dev.sh vm-check",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  ]
+}

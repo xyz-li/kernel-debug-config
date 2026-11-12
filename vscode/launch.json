@@ -24,7 +24,7 @@
                 },
                 {
                     "description": "加载内核符号文件",
-                    "text": "add-symbol-file /Volumes/linux/linux-6.12.63/vmlinux",
+                    "text": "add-symbol-file ${workspaceFolder}/vmlinux",
                     "ignoreFailures": false
                 },
                 {

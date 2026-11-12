@@ -1,0 +1,85 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "go",
+      "debugAdapter": "dlv-dap",
+      "host": "127.0.0.1",
+      "port": 38697,
+      "substitutePath": [
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "gvisor.dev/gvisor"
+        },
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "/proc/self/cwd"
+        }
+      ],
+      "name": "gVisor: Launch runsc (remote Delve)",
+      "request": "launch",
+      "mode": "exec",
+      "program": "${workspaceFolder}/bin/runsc",
+      "args": [
+        "--version"
+      ],
+      "stopOnEntry": true
+    },
+    {
+      "type": "go",
+      "debugAdapter": "dlv-dap",
+      "host": "127.0.0.1",
+      "port": 38697,
+      "substitutePath": [
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "gvisor.dev/gvisor"
+        },
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "/proc/self/cwd"
+        }
+      ],
+      "name": "gVisor: Run sandbox (remote Delve)",
+      "request": "launch",
+      "mode": "exec",
+      "program": "${workspaceFolder}/bin/runsc",
+      "args": [
+        "--root=/var/tmp/gvisor-debug/state",
+        "--platform=ptrace",
+        "--network=none",
+        "do",
+        "/bin/echo",
+        "sandbox-ready"
+      ],
+      "stopOnEntry": true
+    },
+    {
+      "type": "go",
+      "debugAdapter": "dlv-dap",
+      "host": "127.0.0.1",
+      "port": 38697,
+      "substitutePath": [
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "gvisor.dev/gvisor"
+        },
+        {
+          "from": "${workspaceFolder:gvisor-source}",
+          "to": "/proc/self/cwd"
+        }
+      ],
+      "name": "gVisor: Attach Sentry or Gofer (Linux PID)",
+      "request": "attach",
+      "mode": "local",
+      "processId": "${input:linuxPid}"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "linuxPid",
+      "type": "promptString",
+      "description": "Linux Sentry/Gofer PID from dev.sh ps"
+    }
+  ]
+}

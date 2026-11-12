@@ -11,7 +11,7 @@ services:
       - "1234:1234"  # GDB remote debugging
     volumes:
       # 挂载内核源码目录（根据实际情况调整）
-      - /Volumes/linux/linux-6.12.63:/kernel:rw
+      - ${KERNEL_SOURCE:-../linux-source}:/kernel:rw
       # 挂载 output 目录用于输出编译产物
       - ./output:/output:rw
       # 挂载辅助脚本（只读）

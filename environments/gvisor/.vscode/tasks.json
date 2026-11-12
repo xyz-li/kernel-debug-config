@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "gVisor: Setup",
+      "type": "shell",
+      "command": "./dev.sh setup",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "gVisor: Build",
+      "type": "shell",
+      "command": "./dev.sh build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "gVisor: Doctor",
+      "type": "shell",
+      "command": "./dev.sh doctor",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "gVisor: Start Delve DAP",
+      "type": "shell",
+      "command": "./dev.sh dap",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "gVisor: List sandbox PIDs",
+      "type": "shell",
+      "command": "./dev.sh ps",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  ]
+}

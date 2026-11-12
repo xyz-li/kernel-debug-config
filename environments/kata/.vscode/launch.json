@@ -1,0 +1,187 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Kata: Rust shim entry",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/containerd-shim-kata-v2-debug",
+      "args": [
+        "--help"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "-break-insert -f containerd_shim_kata_v2::main"
+        }
+      ]
+    },
+    {
+      "name": "Kata: Agent entry",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/kata-agent-debug",
+      "args": [
+        "--help"
+      ],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "-break-insert -f kata_agent::main"
+        }
+      ]
+    },
+    {
+      "name": "Kata: Standalone Agent RPC",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/kata-agent-debug",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "-break-insert -f kata_agent::main"
+        }
+      ],
+      "preLaunchTask": "Kata: Create OCI bundle"
+    },
+    {
+      "name": "Kata: shim-ctl real VM",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/shim-ctl-debug",
+      "args": [],
+      "cwd": "/var/tmp/kata-debug/bundle",
+      "MIMode": "gdb",
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "-break-insert -f shim_ctl::main"
+        }
+      ],
+      "preLaunchTask": "Kata: Validate VM assets"
+    },
+    {
+      "name": "Kata: Attach Rust shim (Linux PID)",
+      "type": "cppdbg",
+      "request": "attach",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/containerd-shim-kata-v2-debug",
+      "processId": "${input:linuxPid}",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "/usr/bin/gdb",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      }
+    },
+    {
+      "name": "Kata: Attach Agent (Linux PID)",
+      "type": "cppdbg",
+      "request": "attach",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/kata-agent-debug",
+      "processId": "${input:linuxPid}",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "/usr/bin/gdb",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      }
+    },
+    {
+      "name": "Kata: Attach shim-ctl (Linux PID)",
+      "type": "cppdbg",
+      "request": "attach",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/shim-ctl-debug",
+      "processId": "${input:linuxPid}",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "/usr/bin/gdb",
+        "quoteArgs": false
+      },
+      "sourceFileMap": {
+        "/src/kata-containers": "${workspaceFolder:kata-source}"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "linuxPid",
+      "type": "promptString",
+      "description": "Linux process PID"
+    }
+  ]
+}

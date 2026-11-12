@@ -49,7 +49,7 @@ echo ""
 echo -e "${YELLOW}[2] 检查内核源码中编译的模块${NC}"
 
 # 进入内核源码目录（假设是挂载的）
-KERNEL_SOURCE="/Volumes/linux/linux-6.12.63"
+KERNEL_SOURCE="${KERNEL_SOURCE:-/kernel}"
 if [ -d "$KERNEL_SOURCE" ]; then
     echo -e "${GREEN}✓ 找到内核源码: $KERNEL_SOURCE${NC}"
 

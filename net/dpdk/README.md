@@ -80,7 +80,7 @@ bin/vpp -c startup.conf
 ## 6. 设置interface IP state
 ```
 set interface state GigabitEthernet0/2/0 up
-set interface ip address  GigabitEthernet0/2/0 192.168.65.5/24
+set interface ip address  GigabitEthernet0/2/0 192.0.2.5/24
 ```
 
 ## 5. 从host主机上ping vpp 接口IP
