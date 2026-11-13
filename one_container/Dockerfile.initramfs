@@ -1,5 +1,5 @@
 # Initramfs Builder Environment
-ARG BASE_IMAGE=alpine:latest
+ARG BASE_IMAGE=alpine:3.22
 FROM ${BASE_IMAGE}
 
 # 安装构建 initramfs 所需的工具
@@ -22,6 +22,10 @@ RUN apk add --no-cache \
     # 其他实用工具
     file \
     tree \
+    python3 \
+    util-linux \
+    iproute2 \
+    kmod \
     && rm -rf /var/cache/apk/*
 
 # 创建必要的目录

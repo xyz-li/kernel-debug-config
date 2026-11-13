@@ -10,105 +10,113 @@
     {
       "label": "Kernel: Build Docker images",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "build"
+        "setup",
+        "--force"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
     },
     {
       "label": "Kernel: Start build container",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "up",
-        "-d",
-        "kernel-builder"
+        "up"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
     },
     {
       "label": "Kernel: Build kernel",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "exec",
-        "-T",
-        "kernel-builder",
-        "/scripts/build.sh",
-        "--all"
+        "build"
       ],
       "problemMatcher": [],
-      "dependsOn": "Kernel: Start build container",
-      "group": "build"
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Full build",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "build"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
     },
     {
       "label": "Kernel: Build initramfs",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "run",
-        "--rm",
-        "-T",
-        "initramfs-builder",
-        "/scripts/build_initramfs.sh"
+        "rootfs"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
     },
     {
-      "label": "Kernel: Full build",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "Kernel: Build kernel",
-        "Kernel: Build initramfs"
+      "label": "Kernel: Rebuild rootfs",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "rootfs",
+        "--force"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Prepare debug VM",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "debug"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
     },
     {
       "label": "Kernel: Start QEMU",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "exec",
-        "-T",
-        "kernel-builder",
-        "qemu-system-aarch64",
-        "-machine",
-        "virt",
-        "-cpu",
-        "cortex-a57",
-        "-m",
-        "2G",
-        "-smp",
-        "2",
-        "-kernel",
-        "/output/Image",
-        "-initrd",
-        "/output/initramfs.cpio.gz",
-        "-append",
-        "console=ttyAMA0 nokaslr",
-        "-nographic",
-        "-gdb",
-        "tcp:127.0.0.1:1234",
-        "-S"
+        "start"
       ],
       "problemMatcher": [],
-      "dependsOn": "Kernel: Start build container",
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Stop debug VM",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "stop"
+      ],
+      "problemMatcher": [],
       "presentation": {
         "panel": "dedicated"
       }
@@ -116,15 +124,38 @@
     {
       "label": "Kernel: Stop build container",
       "type": "process",
-      "command": "docker",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
       "args": [
-        "compose",
-        "-f",
-        "${workspaceFolder:kernel-config}/docker-compose.yml",
-        "stop",
-        "kernel-builder"
+        "down"
       ],
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Guest console",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "console"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Kernel: Guest logs",
+      "type": "process",
+      "command": "${workspaceFolder:kernel-config}/dev.sh",
+      "args": [
+        "logs"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
     }
   ]
 }

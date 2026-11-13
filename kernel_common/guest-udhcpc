@@ -1,0 +1,12 @@
+#!/bin/sh
+case "$1" in
+    bound|renew)
+        prefix=$(python3 -c 'import ipaddress,sys; print(ipaddress.IPv4Network("0.0.0.0/" + sys.argv[1]).prefixlen)' "$subnet")
+        ip addr flush dev "$interface"
+        ip addr add "$ip/$prefix" dev "$interface"
+        ip link set "$interface" up
+        if [ -n "$router" ]; then ip route replace default via "${router%% *}" dev "$interface"; fi
+        : > /etc/resolv.conf
+        for server in $dns; do echo "nameserver $server" >> /etc/resolv.conf; done
+        ;;
+esac

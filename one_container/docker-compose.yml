@@ -3,12 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: linux-kernel-dev:latest
-    container_name: kernel-dev
+    image: ${KERNEL_BUILDER_IMAGE:-linux-kernel-dev:latest}
+    init: true
     hostname: kernel-dev
-    # 暴露 GDB 调试端口
-    ports:
-      - "1234:1234"  # GDB remote debugging
     volumes:
       # 挂载内核源码目录（根据实际情况调整）
       - ${KERNEL_SOURCE:-../linux-source}:/kernel:rw
@@ -17,13 +14,20 @@ services:
       # 挂载辅助脚本（只读）
       - ./build_kernel.sh:/scripts/build_kernel.sh:ro
       - ./minimal_debug.config:/scripts/minimal_debug.config:ro
+      - ../kernel_common:/scripts/kernel:ro
+      - kernel-cache:/cache
     environment:
       # 设置架构（可选：arm64, arm, x86_64）
-      - ARCH=arm64
+      - ARCH=${ARCH:-arm64}
       # 交叉编译工具前缀（如果需要）
       # - CROSS_COMPILE=aarch64-linux-gnu-
       # 并行编译任务数
-      - JOBS=4
+      - JOBS=${JOBS:-2}
+      - CROSS_COMPILE=${CROSS_COMPILE:-}
+      - KERNEL_BASE_CONFIG=${KERNEL_BASE_CONFIG:-defconfig}
+      - KERNEL_SESSION_NAME=${KERNEL_SESSION_NAME:-kernel-debug-one}
+      - MEMORY=${MEMORY:-2G}
+      - CPUS=${CPUS:-2}
       # 输出目录
       - OUTPUT_DIR=/output
       # Rootfs 目录
@@ -42,21 +46,23 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN
-    command: /bin/bash
+    command: ["sleep", "infinity"]
 
   initramfs-builder:
     build:
       context: .
       dockerfile: Dockerfile.initramfs
       args:
-        - BASE_IMAGE=alpine:latest
-    image: initramfs-builder:latest
-    container_name: initramfs-builder
+        - BASE_IMAGE=${BASE_IMAGE:-alpine:3.22}
+    image: ${ROOTFS_BUILDER_IMAGE:-one-container-initramfs:latest}
     volumes:
       # 挂载 output 目录用于读写 rootfs 和输出 initramfs
       - ./output:/output:rw
       # 挂载构建脚本
       - ./build_initramfs.sh:/scripts/build_initramfs.sh:ro
+      - ../kernel_common:/scripts/kernel:ro
+      - ${ROOTFS_OVERLAY:-./rootfs-overlay}:/overlay:ro
+      - rootfs-cache:/cache
     environment:
       - OUTPUT_DIR=/output
       - ROOTFS_DIR=/output/rootfs
@@ -65,3 +71,7 @@ services:
     stdin_open: true
     tty: true
     command: /bin/sh
+
+volumes:
+  kernel-cache:
+  rootfs-cache:

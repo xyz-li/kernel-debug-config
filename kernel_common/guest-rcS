@@ -1,0 +1,21 @@
+#!/bin/sh
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /dev/pts /dev/shm /run /tmp /sys/kernel/debug /sys/kernel/tracing
+mount -t devpts devpts /dev/pts
+mount -t tmpfs tmpfs /run
+mount -t tmpfs tmpfs /tmp
+mount -t tmpfs tmpfs /dev/shm
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null || true
+hostname kernel-debug
+ip link set lo up
+sysctl -w net.ipv4.ping_group_range='0 2147483647' >/dev/null 2>&1 || true
+if ip link show eth0 >/dev/null 2>&1; then
+    ip link set eth0 up
+    udhcpc -n -q -i eth0 -t 3 -T 1 -s /etc/kernel-debug/udhcpc 2>/dev/null || true
+fi
+printf '\nKERNEL_DEBUG_READY %s\n' "$(uname -r)"
+printf 'Root shell on ttyAMA0; rootfs is recreated from the initramfs at each boot.\n'

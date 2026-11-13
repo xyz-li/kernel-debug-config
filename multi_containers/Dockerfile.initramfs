@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=alpine:latest
+ARG BASE_IMAGE=alpine:3.22
 
 FROM ${BASE_IMAGE}
 
@@ -33,7 +33,9 @@ RUN apk add --no-cache \
     nano \
     htop \
     procps \
-    ca-certificates 
+    ca-certificates \
+    python3 \
+    findutils
 
 # 创建工作目录
 WORKDIR /work

@@ -1,15 +1,23 @@
-# 单容器 Linux 内核调试
+# 单容器 Linux 内核自动构建与调试
 
-本目录支持独立 VSCode 工作区 [`one-container.code-workspace`](one-container.code-workspace)，同时加载构建任务、Docker GDB 配置与内核源码。
-
-源码默认放在本仓库的 `linux-source/`。源码位于其他位置时，从本仓库根目录执行：
+在本仓库根目录绑定源码：
 
 ```bash
-python3 vscode/kernel_workspace.py one_container /path/to/linux
+./one_container/dev.sh bind /path/to/linux
 ```
 
-在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `one_container/output/debug.local.code-workspace`。安装 C/C++ 扩展，依次运行任务 **Kernel: Build Docker images → Kernel: Full build → Kernel: Start QEMU**，再选择 `Kernel: Connect to QEMU (Docker GDB)` 并按 F5。
+VSCode 选择 **文件 → 从文件打开工作区**，打开生成的 `one_container/output/debug.local.code-workspace`。安装 C/C++ 扩展，选择 **Kernel: Build and debug (automatic)**，按 F5 即可按需构建 Docker 镜像、增量编译内核和模块、自动打包 rootfs、启动暂停的 QEMU，并停在 `start_kernel`。停止调试自动停止本环境的 QEMU。
 
-编译、QEMU 和 GDB 在 `kernel-dev` 中运行；initramfs 由独立的 `initramfs-builder` 构建。断点设置在 `kernel-source` 中，GDB 自动停在 `start_kernel`。
+手工入口：
 
-完整工作区说明见 [Linux 内核工作区指南](../vscode/README.md)。原有容器环境和命令行说明保留在 [READEMD.md](READEMD.md)。
+```bash
+cd one_container
+./dev.sh build       # 一次生成内核、模块和 initramfs
+./dev.sh start       # 直接启动已有产物，暂停等待调试器
+./dev.sh console     # 另一终端打开串口，Ctrl+] 断开
+./dev.sh stop
+```
+
+在 `rootfs-overlay/` 放入自定义文件，再执行 `dev.sh rootfs` 即可更新 Guest。rootfs 按内容缓存，未改变时复用。内核通过独立 Docker volume 编译，自动流程不写入绑定的源码树。
+
+已有产物可选择 **Kernel: Debug existing build** 跳过构建。默认同级布局也可打开 [`one-container.code-workspace`](one-container.code-workspace)。完整说明见 [自动化工作区指南](../vscode/README.md)，原有手工流程保留在 [READEMD.md](READEMD.md)。

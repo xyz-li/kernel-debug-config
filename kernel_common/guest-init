@@ -1,0 +1,3 @@
+#!/bin/sh
+# PID 1 is BusyBox init, which reaps children and respawns the console shell.
+exec /bin/busybox init

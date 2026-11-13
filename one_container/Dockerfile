@@ -3,11 +3,17 @@ FROM ubuntu:24.04
 
 # 设置非交互模式，避免安装过程中的提示
 ENV DEBIAN_FRONTEND=noninteractive
-# 更换为国内镜像源（阿里云）以加速下载
+# 使用带签名校验的 Ubuntu 官方 HTTPS 源。
 COPY ubuntu.sources /etc/apt/sources.list.d/
 
+# Bare Ubuntu has no CA bundle: bootstrap it over signed APT, then use HTTPS.
+RUN sed -i 's|https://ports.ubuntu.com|http://ports.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources \
+    && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o APT::Update::Error-Mode=any update \
+    && apt-get -o Acquire::Retries=3 install -y --no-install-recommends ca-certificates \
+    && sed -i 's|http://ports.ubuntu.com|https://ports.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources
+
 # 更新包列表并安装内核编译所需的工具
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update && apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 install -y --no-install-recommends \
     # 基础编译工具
     build-essential \
     gcc \
@@ -32,6 +38,8 @@ RUN apt-get update && apt-get install -y \
     # 调试工具
     gdb \
     gdb-multiarch \
+    python3 \
+    xz-utils \
     # 版本控制和编辑器
     git \
     vim \

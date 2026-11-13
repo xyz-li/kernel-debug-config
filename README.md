@@ -93,7 +93,9 @@ python3 vscode/kernel_workspace.py one_container /path/to/linux
 python3 vscode/kernel_workspace.py multi_containers /path/to/linux
 ```
 
-然后打开对应目录的 `output/debug.local.code-workspace`。工作区同时显示 `kernel-config` 和 `kernel-source`，构建任务和 GDB 自动使用同一源码路径。操作顺序为 **Build Docker images → Full build → Start QEMU → F5**；选择 `Kernel: Connect to QEMU (Docker GDB)` 后自动连接容器内 QEMU，停在 `start_kernel`。详细步骤见 [Linux 内核工作区指南](vscode/README.md)。
+然后打开对应目录的 `output/debug.local.code-workspace`。也可使用各目录的 `./dev.sh bind /path/to/linux`。选择 **Kernel: Build and debug (automatic)**，F5 会按需构建工具镜像、增量编译内核和模块、自动生成或复用 rootfs，再暂停启动 QEMU、连接 GDB 并停在 `start_kernel`；停止调试自动停止本环境实例。
+
+`dev.sh build` 一次准备匹配的内核、符号、模块和 initramfs；已有产物可以选择 **Kernel: Debug existing build** 快速开始。把自定义 Guest 文件放入各环境的 `rootfs-overlay/` 后运行 `dev.sh rootfs`，只有相关输入改变时才重新打包。两套环境的编译缓存、镜像和调试 socket 分别隔离，自动化过程不改动绑定源码。详细步骤见 [Linux 内核自动化指南](vscode/README.md)。
 
 ## 验证范围
 
