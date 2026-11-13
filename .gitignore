@@ -15,5 +15,8 @@ environments/gvisor/output/
 environments/kata/.env
 environments/kata/bin/
 environments/kata/output/
+environments/cloud-hypervisor/.env
+environments/cloud-hypervisor/bin/
+environments/cloud-hypervisor/output/
 **/debug.local.code-workspace
 **/__pycache__/

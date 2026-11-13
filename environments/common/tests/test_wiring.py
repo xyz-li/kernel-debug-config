@@ -43,7 +43,8 @@ class BindingTests(unittest.TestCase):
             shutil.copy2(ROOT / 'common/bind.py', root / 'common/bind.py')
             for kind, marker, key in [('fc', 'src/firecracker/Cargo.toml', 'FC_SOURCE'),
                                       ('gvisor', '.bazelversion', 'SOURCE_DIR'),
-                                      ('kata', 'src/agent/Cargo.toml', 'SOURCE_DIR')]:
+                                      ('kata', 'src/agent/Cargo.toml', 'SOURCE_DIR'),
+                                      ('cloud-hypervisor', 'vmm/src/lib.rs', 'CH_SOURCE')]:
                 directory = root / kind
                 directory.mkdir()
                 (directory / '.env').write_text('MACHINE=keep-this-machine\n')
@@ -77,7 +78,7 @@ class BindingTests(unittest.TestCase):
         self.assertEqual(result.stdout.split(b'\0')[:-1], [a.encode() for a in arguments])
 
     def test_launch_templates_reference_real_wrappers(self):
-        for kind in ('fc', 'gvisor', 'kata'):
+        for kind in ('fc', 'gvisor', 'kata', 'cloud-hypervisor'):
             launch = json.loads((ROOT / kind / '.vscode/launch.json').read_text())
             tasks = json.loads((ROOT / kind / '.vscode/tasks.json').read_text())
             labels = {task['label'] for task in tasks['tasks']}
@@ -90,7 +91,7 @@ class BindingTests(unittest.TestCase):
                     self.assertTrue(Path(wrapper).is_file(), wrapper)
 
     def test_f5_task_dependencies_build_before_launch_and_preserve_attach_symbols(self):
-        for kind in ('fc', 'gvisor', 'kata'):
+        for kind in ('fc', 'gvisor', 'kata', 'cloud-hypervisor'):
             directory = ROOT / kind
             tasks_file = json.loads((directory / '.vscode/tasks.json').read_text())
             tasks = {task['label']: task for task in tasks_file['tasks']}
@@ -138,7 +139,8 @@ class BindingTests(unittest.TestCase):
 
     def test_public_workspaces_resolve_configuration_and_named_source_folders(self):
         for kind, filename, checkout in [('fc', 'firecracker', 'firecracker'),
-                                         ('gvisor', 'gvisor', 'gvisor'), ('kata', 'kata', 'kata-containers')]:
+                                         ('gvisor', 'gvisor', 'gvisor'), ('kata', 'kata', 'kata-containers'),
+                                         ('cloud-hypervisor', 'cloud-hypervisor', 'cloud-hypervisor')]:
             directory = ROOT / kind
             workspace = json.loads((directory / f'{filename}.code-workspace').read_text())
             folders = {folder['name']: (directory / folder['path']).resolve() for folder in workspace['folders']}

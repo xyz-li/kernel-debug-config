@@ -8,14 +8,15 @@ import sys
 
 root = Path(__file__).resolve().parent.parent
 kind, source_arg = sys.argv[1:]
-if kind not in {"fc", "gvisor", "kata"}:
-    raise SystemExit("Expected fc, gvisor or kata")
+if kind not in {"fc", "gvisor", "kata", "cloud-hypervisor"}:
+    raise SystemExit("Expected fc, gvisor, kata or cloud-hypervisor")
 source = Path(source_arg).expanduser().resolve(strict=True)
-marker = {"fc": "src/firecracker/Cargo.toml", "gvisor": ".bazelversion", "kata": "src/agent/Cargo.toml"}[kind]
+marker = {"fc": "src/firecracker/Cargo.toml", "gvisor": ".bazelversion", "kata": "src/agent/Cargo.toml",
+          "cloud-hypervisor": "vmm/src/lib.rs"}[kind]
 if not (source / marker).is_file():
     raise SystemExit(f"Not the expected {kind} checkout: missing {marker}")
 directory = root / kind
-key = "FC_SOURCE" if kind == "fc" else "SOURCE_DIR"
+key = {"fc": "FC_SOURCE", "cloud-hypervisor": "CH_SOURCE"}.get(kind, "SOURCE_DIR")
 env = directory / ".env"
 lines = env.read_text().splitlines() if env.exists() else []
 lines = [line for line in lines if not line.startswith(key + "=")]

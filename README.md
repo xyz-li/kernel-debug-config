@@ -1,12 +1,13 @@
 # Linux runtime 源码调试配置
 
-本仓库集中管理 Firecracker、gVisor 和 Kata 的开发配置；上游源码保持独立。macOS 通过 Apple Container 的 Ubuntu Linux 主机编译和调试，Linux ARM64 原生主机也可直接使用。
+本仓库集中管理 Firecracker、Cloud Hypervisor、gVisor 和 Kata 的开发配置；上游源码保持独立。macOS 通过 Apple Container 的 Ubuntu Linux 主机编译和调试，Linux ARM64 原生主机也可直接使用。
 
-三套环境及共用脚本集中在 [`environments/`](environments/README.md)，各环境的配置和运行产物分别保存在自己的子目录。
+四套环境及共用脚本集中在 [`environments/`](environments/README.md)，各环境的配置和运行产物分别保存在自己的子目录。
 
 | 环境 | 上游源码 | 调试对象 | 构建方式 | VSCode 调试器 |
 | --- | --- | --- | --- | --- |
 | [Firecracker](environments/fc/README.md) | `firecracker-microvm/firecracker` | Rust VMM；可选 Guest 内核 | Cargo，带符号、关闭优化 | C/C++ 扩展 → Linux GDB |
+| [Cloud Hypervisor](environments/cloud-hypervisor/README.md) | `cloud-hypervisor/cloud-hypervisor` | Rust VMM；可选 Guest 内核 | 原生 GNU Cargo debug，启用 `guest_debug` | C/C++ 扩展 → Linux GDB |
 | [gVisor](environments/gvisor/README.md) | `google/gvisor` | Go runsc、Sentry、Gofer | Bazel `//:release` 的 debug 构建，保留 sidecars | Go 扩展 → Linux Delve DAP |
 | [Kata](environments/kata/README.md) | `kata-containers/kata-containers` | Rust runtime-rs、kata-agent、shim-ctl | 原生 Linux GNU Cargo debug 构建 | C/C++ 扩展 → Linux GDB |
 
@@ -17,15 +18,17 @@
 ```bash
 mkdir -p "$HOME/src"
 git clone https://github.com/firecracker-microvm/firecracker.git "$HOME/src/firecracker"
+git clone https://github.com/cloud-hypervisor/cloud-hypervisor.git "$HOME/src/cloud-hypervisor"
 git clone https://github.com/google/gvisor.git "$HOME/src/gvisor"
 git clone https://github.com/kata-containers/kata-containers.git "$HOME/src/kata-containers"
 
 ./environments/fc/dev.sh bind "$HOME/src/firecracker"
+./environments/cloud-hypervisor/dev.sh bind "$HOME/src/cloud-hypervisor"
 ./environments/gvisor/dev.sh bind "$HOME/src/gvisor"
 ./environments/kata/dev.sh bind "$HOME/src/kata-containers"
 ```
 
-`bind` 检查上游目录特征，保存 `FC_SOURCE` 或 `SOURCE_DIR` 到对应目录的 `.env`，生成 `output/debug.local.code-workspace`。它不修改上游源码，不复制上游仓库，也不覆盖其他本地设置。绝对路径和生成工作区均被 Git 忽略。
+`bind` 检查上游目录特征，保存 `FC_SOURCE`、`CH_SOURCE` 或 `SOURCE_DIR` 到对应目录的 `.env`，生成 `output/debug.local.code-workspace`。它不修改上游源码，不复制上游仓库，也不覆盖其他本地设置。绝对路径和生成工作区均被 Git 忽略。
 
 ```bash
 # 共用已有 Ubuntu Host；默认 machine 名为 fc-ubuntu。
@@ -34,13 +37,16 @@ git clone https://github.com/kata-containers/kata-containers.git "$HOME/src/kata
 
 # 各环境首次使用时安装依赖；按需执行。
 ./environments/fc/dev.sh setup
+./environments/cloud-hypervisor/dev.sh setup
 ./environments/gvisor/dev.sh setup
 ./environments/kata/dev.sh setup
 ```
 
 FC 还需要准备 Guest kernel/rootfs，首次导入或下载方式见 [FC 快速开始](environments/fc/README.md#快速开始)。`setup` 是首次安装依赖，日常 F5 不会重复执行它。
 
-分别在 VSCode 打开 `environments/fc/output/debug.local.code-workspace`、`environments/gvisor/output/debug.local.code-workspace` 或 `environments/kata/output/debug.local.code-workspace`。工作区同时显示配置目录和真正的源码目录，断点应设置在 `*-source` 文件夹下。
+Cloud Hypervisor 使用同一个 Ubuntu Host，默认只复用 FC 的基础 Ubuntu rootfs，自动下载并校验 CH 官方 ARM64 内核；独立运行盘、TAP 和子网位于 `environments/cloud-hypervisor/` 对应的配置中。串口、SSH、VMM/Guest 内核调试及完整启动步骤见 [CH 指南](environments/cloud-hypervisor/README.md)。
+
+分别在 VSCode 打开所选环境的 `environments/<环境>/output/debug.local.code-workspace`（例如 `environments/cloud-hypervisor/output/debug.local.code-workspace`）。工作区同时显示配置目录和真正的源码目录，断点应设置在 `*-source` 文件夹下。
 
 打开方式是 **文件（File）→ 从文件打开工作区（Open Workspace from File…）**，然后选择对应的 `.code-workspace` 文件。该文件描述需要一起打开的目录和工作区设置，VSCode 会据此载入配置目录、源码目录以及调试选项。FC 的菜单操作、目录说明和 macOS 终端打开命令见 [FC README](environments/fc/README.md#在-vscode-中从文件打开工作区)。
 
@@ -51,6 +57,7 @@ FC 还需要准备 Guest kernel/rootfs，首次导入或下载方式见 [FC 快�
 | 调试配置 | F5 自动执行的启动前任务 |
 | --- | --- |
 | FC Launch | `FC: Build` → Linux GDB 启动 FC |
+| CH Launch（串口 / SSH / Linux 本地） | `CH: Build` → 准备独立 Guest 磁盘和网络 → Linux GDB 停在 `cloud_hypervisor::main` |
 | gVisor Launch / Run sandbox | Bazel debug 构建 → 启动 Delve 和 macOS 转发 → 等待 Linux Delve 就绪 |
 | Kata Rust shim entry | 编译 runtime-rs / shim-ctl → Linux GDB |
 | Kata Agent entry | 编译 Agent / agent-ctl → Linux GDB |
@@ -64,6 +71,7 @@ Attach 配置连接已经运行的进程，保留与该进程匹配的二进制�
 | 环境 | workspace | 默认源码目录（相对本仓库） |
 | --- | --- | --- |
 | FC | [`environments/fc/firecracker.code-workspace`](environments/fc/firecracker.code-workspace) | `../firecracker` |
+| Cloud Hypervisor | [`environments/cloud-hypervisor/cloud-hypervisor.code-workspace`](environments/cloud-hypervisor/cloud-hypervisor.code-workspace) | `../cloud-hypervisor` |
 | gVisor | [`environments/gvisor/gvisor.code-workspace`](environments/gvisor/gvisor.code-workspace) | `../gvisor` |
 | Kata | [`environments/kata/kata.code-workspace`](environments/kata/kata.code-workspace) | `../kata-containers` |
 
@@ -98,5 +106,7 @@ python3 vscode/kernel_workspace.py multi_containers /path/to/linux
 `dev.sh build` 一次准备匹配的内核、符号、模块和 initramfs；已有产物可以选择 **Kernel: Debug existing build** 快速开始。把自定义 Guest 文件放入各环境的 `rootfs-overlay/` 后运行 `dev.sh rootfs`，只有相关输入改变时才重新打包。两套环境的编译缓存、镜像和调试 socket 分别隔离，自动化过程不改动绑定源码。详细步骤见 [Linux 内核自动化指南](vscode/README.md)。
 
 ## 验证范围
+
+Cloud Hypervisor 已在同一 Ubuntu ARM64 Host 验证源码构建、VSCode C/C++ 调试适配器 main 断点与调用栈、串口/SSH Guest、网关/外网/DNS，以及 Guest GDB 握手和退出清理；内核源码断点仍需提供匹配的 `Image` / `vmlinux`。具体版本和步骤见 [CH 验证记录](environments/cloud-hypervisor/README.md#验证)。
 
 Firecracker 的 Ubuntu KVM、VSCode 入口断点、Guest 网络和 DNS 已验证。gVisor、Kata 的上游仓库由使用者 clone / bind 后再进行实际构建；配置和调试通道的验证情况见各自 README。Guest 内核、Sentry 和 Kata VM 内 Agent 分属不同进程或机器，不能用 Host 进程的 main 断点代替相应内部代码的调试。

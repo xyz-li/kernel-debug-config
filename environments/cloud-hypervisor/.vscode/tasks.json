@@ -1,0 +1,99 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}"
+  },
+  "tasks": [
+    {
+      "label": "CH: Setup",
+      "type": "shell",
+      "command": "./dev.sh setup",
+      "problemMatcher": []
+    },
+    {
+      "label": "CH: Doctor",
+      "type": "shell",
+      "command": "./dev.sh doctor",
+      "problemMatcher": []
+    },
+    {
+      "label": "CH: Build",
+      "type": "shell",
+      "command": "./dev.sh build",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "CH: Prepare",
+      "type": "shell",
+      "command": "./dev.sh prepare",
+      "problemMatcher": []
+    },
+    {
+      "label": "CH: Run serial",
+      "type": "shell",
+      "command": "./dev.sh --mode serial run",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Run SSH",
+      "type": "shell",
+      "command": "./dev.sh --mode ssh run",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Debug in GDB",
+      "type": "shell",
+      "command": "./dev.sh debug",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Guest serial console",
+      "type": "shell",
+      "command": "./dev.sh console",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Guest SSH shell",
+      "type": "shell",
+      "command": "./dev.sh ssh",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Check network and DNS",
+      "type": "shell",
+      "command": "./dev.sh check",
+      "problemMatcher": []
+    },
+    {
+      "label": "CH: Guest kernel debug",
+      "type": "shell",
+      "command": "./dev.sh guest-debug",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "CH: Stop",
+      "type": "shell",
+      "command": "./dev.sh stop",
+      "problemMatcher": []
+    }
+  ]
+}

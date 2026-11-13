@@ -1,0 +1,5 @@
+{
+  "debug.allowBreakpointsEverywhere": true,
+  "files.exclude": {"output": true},
+  "search.exclude": {"output": true, "bin": true}
+}

@@ -1,0 +1,7 @@
+{
+  "folders": [
+    {"name": "cloud-hypervisor-debug", "path": "."},
+    {"name": "cloud-hypervisor-source", "path": "../../../cloud-hypervisor"}
+  ],
+  "settings": {"debug.allowBreakpointsEverywhere": true}
+}

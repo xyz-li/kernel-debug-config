@@ -1,0 +1,161 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CH: Launch serial on Ubuntu Host (macOS)",
+      "preLaunchTask": "CH: Build",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/cloud-hypervisor-debug",
+      "args": [],
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [
+          "--guest-mode",
+          "serial"
+        ],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "handle SIG34 nostop noprint pass",
+          "description": "Pass glibc SIGRTMIN used to kick CH vCPUs"
+        },
+        {
+          "text": "set breakpoint pending on"
+        },
+        {
+          "text": "-break-insert -f cloud_hypervisor::main",
+          "ignoreFailures": false
+        }
+      ]
+    },
+    {
+      "name": "CH: Launch ssh on Ubuntu Host (macOS)",
+      "preLaunchTask": "CH: Build",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/cloud-hypervisor-debug",
+      "args": [],
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [
+          "--guest-mode",
+          "ssh"
+        ],
+        "debuggerPath": "${workspaceFolder}/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "handle SIG34 nostop noprint pass",
+          "description": "Pass glibc SIGRTMIN used to kick CH vCPUs"
+        },
+        {
+          "text": "set breakpoint pending on"
+        },
+        {
+          "text": "-break-insert -f cloud_hypervisor::main",
+          "ignoreFailures": false
+        }
+      ]
+    },
+    {
+      "name": "CH: Launch locally (Linux ARM64)",
+      "preLaunchTask": "CH: Build",
+      "type": "cppdbg",
+      "request": "launch",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/cloud-hypervisor-debug",
+      "args": [],
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false,
+      "externalConsole": false,
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "handle SIG34 nostop noprint pass",
+          "description": "Pass glibc SIGRTMIN used to kick CH vCPUs"
+        },
+        {
+          "text": "set breakpoint pending on"
+        },
+        {
+          "text": "-break-insert -f cloud_hypervisor::main",
+          "ignoreFailures": false
+        }
+      ],
+      "miDebuggerPath": "${workspaceFolder}/gdb-host.sh"
+    },
+    {
+      "name": "CH: Remote attach to Ubuntu Host (macOS)",
+      "type": "cppdbg",
+      "request": "attach",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/cloud-hypervisor-debug",
+      "processId": "${input:chPid}",
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "handle SIG34 nostop noprint pass"
+        }
+      ],
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
+        "pipeArgs": [],
+        "debuggerPath": "/usr/bin/gdb",
+        "quoteArgs": false
+      }
+    },
+    {
+      "name": "CH: Attach locally (Linux ARM64)",
+      "type": "cppdbg",
+      "request": "attach",
+      "targetArchitecture": "arm64",
+      "program": "${workspaceFolder}/bin/cloud-hypervisor-debug",
+      "processId": "${input:chPid}",
+      "MIMode": "gdb",
+      "cwd": "${workspaceFolder}",
+      "setupCommands": [
+        {
+          "text": "set pagination off"
+        },
+        {
+          "text": "handle SIG34 nostop noprint pass"
+        }
+      ],
+      "miDebuggerPath": "/usr/bin/gdb"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "chPid",
+      "type": "promptString",
+      "description": "Linux Cloud Hypervisor PID printed by dev.sh run"
+    }
+  ]
+}
