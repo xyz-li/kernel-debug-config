@@ -1,5 +1,5 @@
 # topo.yaml
-name: cilium-lb
+name: cilium-bgp
 topology:
   kinds:
     linux:
@@ -16,20 +16,16 @@ topology:
       - ip route add blackhole 10.0.0.0/8
       - touch /etc/frr/vtysh.conf
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
-      - usr/lib/frr/frrinit.sh start
+      - /usr/lib/frr/frrinit.sh start
       - |
-        bash -c '
-        while true; do
-        vtysh -c "show daemons"
-        res=$(vtysh -c "show daemons" |grep zebra)
-        if [ "$res" != "" ]; then
-          echo "daemon started"
-          break
-        else
-          echo "sleep 1"
+        bash -ec '
+        for attempt in {1..30}; do
+          daemons=$(vtysh -c "show daemons" 2>/dev/null) || daemons=
+          if grep -qw zebra <<< "$daemons" && grep -qw bgpd <<< "$daemons"; then exit 0; fi
           sleep 1
-        fi
-        done'
+        done
+        echo "FRR zebra/bgpd did not become ready" >&2
+        exit 1'
       - >-
          vtysh -c 'conf t'
          -c 'router bgp 65000'
@@ -60,18 +56,14 @@ topology:
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
       - /usr/lib/frr/frrinit.sh start
       - |
-        bash -c '
-        while true; do
-        vtysh -c "show daemons"
-        res=$(vtysh -c "show daemons" |grep zebra)
-        if [ "$res" != "" ]; then
-          echo "daemon started"
-          break
-        else
-          echo "sleep 1"
+        bash -ec '
+        for attempt in {1..30}; do
+          daemons=$(vtysh -c "show daemons" 2>/dev/null) || daemons=
+          if grep -qw zebra <<< "$daemons" && grep -qw bgpd <<< "$daemons"; then exit 0; fi
           sleep 1
-        fi
-        done'
+        done
+        echo "FRR zebra/bgpd did not become ready" >&2
+        exit 1'
       - >-
          vtysh -c 'conf t'
          -c 'frr defaults datacenter'
@@ -106,18 +98,14 @@ topology:
       - sed -i -e 's/bgpd=no/bgpd=yes/g' /etc/frr/daemons
       - /usr/lib/frr/frrinit.sh start
       - |
-        bash -c '
-        while true; do
-        res=$(vtysh -c "show daemons" |grep zebra)
-        vtysh -c "show daemons"
-        if [ "$res" != "" ]; then
-          echo "daemon started"
-          break
-        else
-          echo "sleep 1"
+        bash -ec '
+        for attempt in {1..30}; do
+          daemons=$(vtysh -c "show daemons" 2>/dev/null) || daemons=
+          if grep -qw zebra <<< "$daemons" && grep -qw bgpd <<< "$daemons"; then exit 0; fi
           sleep 1
-        fi
-        done'
+        done
+        echo "FRR zebra/bgpd did not become ready" >&2
+        exit 1'
       - >-
          vtysh -c 'conf t'
          -c 'frr defaults datacenter'
@@ -139,7 +127,7 @@ topology:
     server0:
       kind: linux
       image: nicolaka/netshoot:latest
-      network-mode: container:cilium-lb-control-plane
+      network-mode: container:cilium-bgp-control-plane
       exec:
       - ip addr add 10.0.1.2/24 dev net0
       - ip route replace default via 10.0.1.1
@@ -147,7 +135,7 @@ topology:
     server1:
       kind: linux
       image: nicolaka/netshoot:latest
-      network-mode: container:cilium-lb-worker
+      network-mode: container:cilium-bgp-worker
       exec:
       - ip addr add 10.0.2.2/24 dev net0
       - ip route replace default via 10.0.2.1
@@ -155,7 +143,7 @@ topology:
     server2:
       kind: linux
       image: nicolaka/netshoot:latest
-      network-mode: container:cilium-lb-worker2
+      network-mode: container:cilium-bgp-worker2
       exec:
       - ip addr add 10.0.3.2/24 dev net0
       - ip route replace default via 10.0.3.1
@@ -163,7 +151,7 @@ topology:
     server3:
       kind: linux
       image: nicolaka/netshoot:latest
-      network-mode: container:cilium-lb-worker3
+      network-mode: container:cilium-bgp-worker3
       exec:
       - ip addr add 10.0.4.2/24 dev net0
       - ip route replace default via 10.0.4.1

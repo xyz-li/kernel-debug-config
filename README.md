@@ -66,4 +66,4 @@ python3 -m unittest discover -s kernel/common/tests -v
 
 公共串口测试需要允许创建本地 Unix socket。实际 Host、Guest 和调试适配器的验证范围记录在各区域指南中。
 
-目录迁移后已实测两套内核工作区的入口断点、变量读取、单步和 Guest 串口；Firecracker / Cloud Hypervisor 的 main 断点、新路径源码映射、Guest SSH、网络和清理也已通过。网络实验的原有文件仅移动目录。
+目录迁移后已实测两套内核工作区的入口断点、变量读取、单步和 Guest 串口；Firecracker / Cloud Hypervisor 的 main 断点、新路径源码映射、Guest SSH、网络和清理也已通过。网络实验已补充独立部署、失败退出和验证入口；静态与模拟检查、Linux 实测的范围见 [Cilium 指南](network/cilium/README.md)。

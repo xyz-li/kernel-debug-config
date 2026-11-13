@@ -21,3 +21,8 @@ environments/*/bin/
 environments/*/output/
 one_container/output/
 multi_containers/output/
+
+# Private network lab kubeconfigs, generated topology state and old image archives.
+network/cilium/*/output/
+network/cilium/*/clab-*/
+network/cilium/*/cilium-image.tar

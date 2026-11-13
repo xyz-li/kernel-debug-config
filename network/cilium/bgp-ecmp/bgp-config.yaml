@@ -27,14 +27,16 @@ spec:
 apiVersion: cilium.io/v2
 kind: CiliumBGPPeerConfig
 metadata:
-  name: ibgp-peer-vip
+  name: ibgp-peer-pods-and-vip
 spec:
   families:
   - afi: ipv4
     safi: unicast
     advertisements:
-      matchLabels:
-        advertise: "bgp-vip"
+      matchExpressions:
+      - key: advertise
+        operator: In
+        values: [bgp-pods, bgp-vip]
 ---
 apiVersion: cilium.io/v2
 kind: CiliumBGPPeerConfig
@@ -82,4 +84,4 @@ spec:
       peerASN: 65011
       peerAddress: "10.0.0.2"
       peerConfigRef:
-        name: ibgp-peer-vip
+        name: ibgp-peer-pods-and-vip
