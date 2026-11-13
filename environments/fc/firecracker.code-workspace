@@ -1,9 +1,0 @@
-{
-  "folders": [
-    {"name": "fc-debug", "path": "."},
-    {"name": "fc-source", "path": "../../../firecracker"}
-  ],
-  "settings": {
-    "debug.allowBreakpointsEverywhere": true
-  }
-}

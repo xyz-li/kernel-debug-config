@@ -1,0 +1,9 @@
+{
+  "folders": [
+    {"name": "firecracker-debug", "path": "."},
+    {"name": "firecracker-source", "path": "../../../firecracker"}
+  ],
+  "settings": {
+    "debug.allowBreakpointsEverywhere": true
+  }
+}

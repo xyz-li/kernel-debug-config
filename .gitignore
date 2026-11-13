@@ -1,22 +1,23 @@
-multi_containers/output
-one_container/output
 .DS_Store
 .claude
-environments/fc/bin/*
-!environments/fc/bin/.gitkeep
-environments/fc/.env
-environments/fc/output/
-environments/fc/__pycache__/
-environments/common/.env
-environments/common/__pycache__/
-environments/gvisor/.env
-environments/gvisor/bin/
-environments/gvisor/output/
-environments/kata/.env
-environments/kata/bin/
-environments/kata/output/
-environments/cloud-hypervisor/.env
-environments/cloud-hypervisor/bin/
-environments/cloud-hypervisor/output/
 **/debug.local.code-workspace
 **/__pycache__/
+
+# Local runtime settings, source checkouts and build artifacts.
+runtimes/*/.env
+runtimes/*/.env.*
+!runtimes/*/.env.example
+runtimes/*/output/
+runtimes/*/bin/*
+!runtimes/firecracker/bin/.gitkeep
+
+# Kernel sources, filesystem images and generated workspaces.
+kernel/*/output/
+
+# Keep old local state private until tools/migrate_layout.py has moved it.
+environments/*/.env
+environments/*/.env.*
+environments/*/bin/
+environments/*/output/
+one_container/output/
+multi_containers/output/
