@@ -29,6 +29,42 @@ FC、CH、Kata 的 macOS 调试配置都使用 `gdb-pipe.sh`，但调试适配�
 
 主通道的实际通信关系为 `VSCode → DAP → OpenDebugAD7 → GDB/MI → Linux GDB → FC`。DAP 是 VSCode 与调试适配器之间的协议，GDB/MI 是调试适配器与 GDB 之间的协议，两段各有自己的输入流。
 
+### 配置项、自动命令与实现路径
+
+这几部分分别负责不同的工作：
+
+- `pipeTransport` 配置执行通道：`pipeProgram` 指定本机包装脚本，`pipeArgs` 提供模式等参数，`debuggerPath` 指定主通道要启动的调试器或启动脚本。适配器也会复用 `pipeProgram` 执行辅助命令。
+- `setupCommands` 配置 GDB 初始化：GDB 启动后，适配器通过主通道发送这些命令，例如 `set pagination off`、`handle SIG35 nostop noprint pass`、`-break-insert -f firecracker::main`。
+- `kill -5 <PID>` 是适配器内部按需生成的辅助控制命令，没有单独的 `launch.json` 配置项，也不是 `setupCommands` 中的一条初始化命令。
+
+以 FC 为例，按下面的路径查找配置和实现：
+
+| 负责的部分 | 路径与入口 |
+| --- | --- |
+| 生成辅助命令 | 微软 MIEngine 的 [`src/MICore/Transports/PipeTransport.cs`](https://github.com/microsoft/MIEngine/blob/d8f7a3d17e1607f06a3ba4f8453e609f4e0f3a23/src/MICore/Transports/PipeTransport.cs#L41-L49)：`PipeTransport.Interrupt()` 生成 `kill -5 <PID>`，再通过配置的管道执行 |
+| 指定执行通道及 GDB 初始化 | 本仓库 [`runtimes/fc/.vscode/launch.json`](../fc/.vscode/launch.json)：分别查看 `pipeTransport` 和 `setupCommands` |
+| 将调用转交 Ubuntu Host | 本仓库 [`runtimes/fc/gdb-pipe.sh`](../fc/gdb-pipe.sh)：接收参数，通过 `container machine run` 执行 |
+| 准备环境并启动 GDB | 本仓库 [`runtimes/fc/gdb-host.sh`](../fc/gdb-host.sh) → [`runtimes/fc/run-firecracker.sh`](../fc/run-firecracker.sh) 的 `debug-mi` 分支 |
+| 区分两类调用的输入方式 | 本仓库 [`runtimes/common/mi-pipe.sh`](mi-pipe.sh)：`prepare_mi_pipe()` 决定是否启用交互输入 |
+
+FC 的调用链可以分别展开为：
+
+```text
+主通道：launch.json 的 pipeTransport
+        → gdb-pipe.sh → gdb-host.sh → run-firecracker.sh debug-mi → GDB
+        GDB 启动后，适配器经主通道发送 setupCommands。
+
+辅助调用：MIEngine 的 PipeTransport.Interrupt()
+          → gdb-pipe.sh --guest-mode liquidmetal "kill -5 <FC_PID>"
+          → container machine run → Ubuntu 中的 kill
+```
+
+FC 配置中的 `${workspaceFolder}` 指调试配置目录 `runtimes/fc`；`firecracker-source` 是另一个工作区根目录，指向上游源码。上述包装脚本在本配置仓库中，命令生成逻辑则在 C/C++ 扩展使用的 MIEngine 中。
+
+CH 对应 [`runtimes/ch/.vscode/launch.json`](../ch/.vscode/launch.json)、[`runtimes/ch/gdb-pipe.sh`](../ch/gdb-pipe.sh) 和 [`runtimes/ch/gdb-host.sh`](../ch/gdb-host.sh)；Kata 对应 [`runtimes/kata/.vscode/launch.json`](../kata/.vscode/launch.json)、[`runtimes/kata/gdb-pipe.sh`](../kata/gdb-pipe.sh) 和 [`runtimes/kata/gdb-host.sh`](../kata/gdb-host.sh)。三者都引用公共的 `mi-pipe.sh`。
+
+### 暂停行为与输入隔离
+
 点击“暂停”，或在程序运行中增加、删除断点时，适配器可能先通过辅助调用向被调试进程发送 `SIGTRAP`（`kill -5`），由 GDB 捕获并暂停，再修改断点或向界面报告暂停。这里的 `kill` 是发送信号的工具；这条命令用于触发调试暂停。
 
 原来的包装脚本无条件添加 `--interactive`。辅助进程继承的是调试适配器的标准输入；继续转发它，会与适配器竞争 DAP 数据，或改变共享输入描述符的读取标志。已复现的结果是适配器出现读取异常，FC 被 GDB 停住，VSCode 却仍显示“正在运行”，API 请求也因处理线程暂停而等待。

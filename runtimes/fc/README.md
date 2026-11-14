@@ -156,6 +156,8 @@ F5 的执行链路：VSCode → `FC: Build` task → `./dev.sh build` → `conta
 
 同一个管道脚本有两类调用：启动 `gdb-host.sh --interpreter=mi` 的持续 GDB/MI 主通道，以及运行中设置断点或点击“暂停”时执行的 `kill -5 <FC_PID>` 等一次性辅助控制命令。只有主通道开启 `--interactive`；辅助命令的标准输入连接 `/dev/null`，避免抢读 VSCode 的调试协议，造成界面显示运行而 FC 实际暂停。两段协议、故障原因和验证步骤见[公共 GDB 管道说明](../common/README.md#gdb-主通道与辅助控制命令)。
 
+查找具体位置时，先看 [`runtimes/fc/.vscode/launch.json`](.vscode/launch.json) 的 `pipeTransport`（执行通道）和 `setupCommands`（GDB 初始化）。`kill -5 <FC_PID>` 由 C/C++ 扩展的 MIEngine 自动生成，再经 [`gdb-pipe.sh`](gdb-pipe.sh) 转交 Linux；输入隔离规则位于 [`runtimes/common/mi-pipe.sh`](../common/mi-pipe.sh)。命令生成的上游源码位置、CH/Kata 对应文件及完整调用链见[配置项与实现路径](../common/README.md#配置项自动命令与实现路径)。
+
 配置明确指定 ARM64，并让 GDB 传递 musl 的 `SIGRTMIN`（`SIG35`）。Firecracker 用这个信号唤醒 vCPU；如果 GDB 报 `Real-time event 35` 并暂停，Guest 会一起停止运行。
 
 三种 Launch 配置均将 `unknownBreakpointHandling` 设为 `stop`，让 GDB 预设的 `firecracker::main` 入口断点显示为普通暂停，避免被 C/C++ 调试适配器标成“出现异常”。
