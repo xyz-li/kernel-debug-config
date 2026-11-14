@@ -13,6 +13,7 @@ topology:
       exec:
       - iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
       - ip addr add 10.0.0.0/32 dev lo
+      - ip addr add 198.18.0.1/24 dev net2
       - ip route add blackhole 10.0.0.0/8
       - sysctl -w net.ipv4.fib_multipath_hash_policy=1
       - sysctl -w net.ipv4.fib_multipath_use_neigh=1
@@ -118,8 +119,6 @@ topology:
       - >-
          vtysh -c 'conf t'
          -c 'zebra nexthop kernel enable'
-         -c 'nexthop-group zebra'
-         -c 'resilient buckets 64 idle-timer 100 unbalanced-timer 100'
          -c 'frr defaults datacenter'
          -c 'router bgp 65011'
          -c ' bgp router-id 10.0.0.2'
@@ -139,6 +138,13 @@ topology:
          -c '  exit-address-family'
          -c '!'      
     
+    client0:
+      kind: linux
+      image: nicolaka/netshoot:latest
+      exec:
+      - ip addr add 198.18.0.2/24 dev net0
+      - ip route replace default via 198.18.0.1
+
     server0:
       kind: linux
       image: nicolaka/netshoot:latest
@@ -168,9 +174,6 @@ topology:
       - ip route replace default via 10.0.3.1
       - sysctl -w net.ipv4.fib_multipath_hash_policy=1
       - sysctl -w net.ipv4.fib_multipath_use_neigh=1
-      - ip link add cilium-ext0 type dummy
-      - ip addr add 10.100.0.1/24 dev cilium-ext0   # 需要将 10.100.0.1/24 地址设置到cilium-ext0, 用于引流，否则所有VIP的流量都会被kernel抛弃,到达主机之后,由cilium bpf进行后端映射. 由cilium 将VIP路由宣告到bgp peer
-      - ip link set dev cilium-ext0 up
 
     server3:
       kind: linux
@@ -181,12 +184,10 @@ topology:
       - ip route replace default via 10.0.4.1
       - sysctl -w net.ipv4.fib_multipath_hash_policy=1
       - sysctl -w net.ipv4.fib_multipath_use_neigh=1
-      - ip link add cilium-ext0 type dummy
-      - ip addr add 10.100.0.1/24 dev cilium-ext0
-      - ip link set dev cilium-ext0 up
 
 
   links:
+  - endpoints: ["router0:net2", "client0:net0"]
   - endpoints: ["router0:net0", "tor0:net0"]
   - endpoints: ["router0:net1", "tor1:net0"]
   - endpoints: ["tor0:net1", "server0:net0"]

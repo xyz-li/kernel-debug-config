@@ -3,6 +3,11 @@
 set -Eeuo pipefail
 
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+case ${LAB_TRACE:-0} in
+    1) export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]:-main}: '; set -x ;;
+    0) ;;
+    *) fail 'LAB_TRACE must be 0 or 1' ;;
+esac
 [[ $# == 2 ]] || fail 'Usage: lab.sh LAB_DIRECTORY deploy|destroy|verify'
 LAB_DIR=$(cd -- "$1" && pwd)
 COMMON_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -27,8 +32,7 @@ preflight() {
     [[ $(id -u) == 0 ]] || fail 'Containerlab needs root: run this script with sudo on the Linux lab host.'
     local required=(docker kind clab)
     if [[ "$ACTION" != destroy ]]; then required+=(kubectl python3); fi
-    if [[ "$ACTION" == deploy ]]; then required+=(helm); fi
-    if [[ "$ACTION" == deploy && "$LAB_NAME" == cilium-bgp-ecmp ]]; then required+=(modprobe); fi
+    if [[ "$ACTION" == deploy ]]; then required+=(helm sysctl); fi
     local tool endpoint security
     for tool in "${required[@]}"; do command -v "$tool" >/dev/null || fail "Missing command: $tool"; done
     [[ $(docker info --format '{{.OSType}}') == linux ]] || fail 'A working Linux Docker Engine is required'
@@ -40,6 +44,24 @@ preflight() {
         endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}')
     fi
     [[ "$endpoint" == unix://* ]] || fail 'Run inside the Linux Docker host using its local Unix socket; remote Docker contexts cannot supply local network namespaces.'
+    if [[ "$ACTION" != destroy ]]; then
+        local config='' option options=(MODULES BPF_SYSCALL BPF_JIT CGROUP_BPF)
+        if [[ -r /proc/config.gz ]]; then
+            config=/proc/config.gz
+        elif [[ -r /boot/config-$(uname -r) ]]; then
+            config=/boot/config-$(uname -r)
+        fi
+        if [[ "$LAB_NAME" == cilium-bgp-ecmp ]]; then options+=(IP_ROUTE_MULTIPATH); fi
+        if [[ -n "$config" ]]; then
+            for option in "${options[@]}"; do
+                if [[ "$config" == *.gz ]]; then
+                    gzip -dc "$config" | grep -x "CONFIG_$option=y" >/dev/null || fail "Host kernel needs CONFIG_$option=y; see common/host-network.config"
+                else
+                    grep -qx "CONFIG_$option=y" "$config" || fail "Host kernel needs CONFIG_$option=y; see common/host-network.config"
+                fi
+            done
+        fi
+    fi
 }
 
 kube() { kubectl --kubeconfig "$CONFIG" --context "$CONTEXT" "$@"; }
@@ -81,6 +103,32 @@ route_ready() {
         python3 "$COMMON_DIR/check.py" route "$prefix" "$@"
 }
 
+load_images() {
+    # Docker 29's containerd store retains a multi-arch index with only local
+    # platform content. Export one platform so kind's --all-platforms import
+    # does not try to load missing amd64/attestation blobs on ARM64.
+    if docker image save --help | grep -- '--platform' >/dev/null; then
+        local platform archive
+        platform=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$1")
+        archive=$(mktemp "$OUTPUT/images.XXXXXX.tar")
+        docker image save --platform "$platform" --output "$archive" "$@"
+        kind load image-archive --name "$LAB_NAME" "$archive"
+        rm -f -- "$archive"
+    else
+        kind load docker-image --name "$LAB_NAME" "$@"
+    fi
+}
+
+prepare_host_limits() {
+    local key current minimum
+    for key in fs.inotify.max_user_instances fs.inotify.max_user_watches; do
+        case "$key" in *.max_user_instances) minimum=8192 ;; *) minimum=1048576 ;; esac
+        current=$(sysctl -n "$key")
+        [[ "$current" =~ ^[0-9]+$ ]] || fail "Cannot read $key"
+        if (( current < minimum )); then sysctl -w "$key=$minimum"; fi
+    done
+}
+
 verify() {
     [[ -s "$CONFIG" ]] || fail "Missing $CONFIG; deploy this lab first"
     kube wait --for=condition=Ready nodes --all --timeout="${LAB_WAIT_SECONDS}s"
@@ -99,7 +147,7 @@ verify() {
     pod_ips=$(kube get pods -l app=nginx -o 'jsonpath={range .items[*]}{.status.podIP}{"\n"}{end}')
     [[ -n "$pod_ips" ]] || fail 'No nginx Pod IPs'
     # netshoot supplies curl; test both racks without assuming FRR contains curl.
-    for server in server0 server3; do
+    for server in server0 server3 client0; do
         while IFS= read -r ip; do
             [[ -n "$ip" ]] || continue
             docker exec "clab-$LAB_NAME-$server" curl --fail --silent --show-error --max-time 10 "http://$ip/" >/dev/null
@@ -108,6 +156,9 @@ verify() {
     if [[ "$LAB_NAME" == cilium-bgp-ecmp ]]; then
         retry 'two installed VIP next hops on tor1' route_ready tor1 10.100.0.100/32 10.0.3.2 10.0.4.2
         docker exec "clab-$LAB_NAME-server0" curl --fail --silent --show-error --max-time 10 http://10.100.0.100/ >/dev/null
+        # This client is outside both the Cilium nodes and the transit routers.
+        docker exec "clab-$LAB_NAME-client0" \
+            curl --fail --silent --show-error --max-time 10 http://10.100.0.100/ >/dev/null
         docker exec "clab-$LAB_NAME-tor1" vtysh -c 'show ip route 10.100.0.100/32'
     fi
     kube get nodes -o wide
@@ -121,21 +172,21 @@ deploy() {
         fail "$LAB_NAME already exists; use verify.sh or explicitly destroy it before redeploying"
     fi
     containers=$(docker ps -a --format '{{.Names}}')
-    if grep -Eq "^clab-$LAB_NAME-(router0|tor0|tor1|server[0-3])$" <<< "$containers"; then
+    if grep -Eq "^clab-$LAB_NAME-(router0|tor0|tor1|client0|server[0-3])$" <<< "$containers"; then
         fail "Existing $LAB_NAME topology containers found; inspect them or use destroy.sh"
     fi
+    prepare_host_limits
     mkdir -p "$OUTPUT"
     chmod 700 "$OUTPUT"
     trap 'printf "Deployment failed. Resources are retained for inspection; cleanup: sudo %q/destroy.sh\n" "$LAB_DIR" >&2' ERR
-    if [[ "$LAB_NAME" == cilium-bgp-ecmp ]]; then modprobe dummy; fi
     # No --wait: CNI and physical links are installed after kind bootstraps.
-    kind create cluster --name "$LAB_NAME" --config "$LAB_DIR/kind.yaml" --image "$KIND_NODE_IMAGE" --kubeconfig "$CONFIG"
+    kind create cluster --retain --name "$LAB_NAME" --config "$LAB_DIR/kind.yaml" --image "$KIND_NODE_IMAGE" --kubeconfig "$CONFIG"
     chmod 600 "$CONFIG"
     clab deploy --topo "$LAB_DIR/topo.yaml"
     local images=(quay.io/cilium/cilium:v1.19.0 quay.io/cilium/operator-generic:v1.19.0
         quay.io/cilium/cilium-envoy:v1.35.9-1768828720-c6e4827ebca9c47af2a3a6540c563c30947bae29 nginx:alpine)
     for image in "${images[@]}"; do docker pull "$image"; done
-    kind load docker-image --name "$LAB_NAME" "${images[@]}"
+    load_images "${images[@]}"
     helm upgrade --install cilium "$LAB_DIR/cilium" --namespace kube-system \
         --kubeconfig "$CONFIG" --kube-context "$CONTEXT" --wait --timeout "${LAB_WAIT_SECONDS}s"
     wait_crds
@@ -149,7 +200,7 @@ destroy() {
     # Never target the legacy shared cilium-lb cluster or another lab's context.
     local status=0 containers
     containers=$(docker ps -a --format '{{.Names}}')
-    if [[ -d "$LAB_DIR/clab-$LAB_NAME" ]] || grep -Eq "^clab-$LAB_NAME-(router0|tor0|tor1|server[0-3])$" <<< "$containers"; then
+    if [[ -d "$LAB_DIR/clab-$LAB_NAME" ]] || grep -Eq "^clab-$LAB_NAME-(router0|tor0|tor1|client0|server[0-3])$" <<< "$containers"; then
         clab destroy --topo "$LAB_DIR/topo.yaml" --cleanup || status=$?
     fi
     KUBECONFIG="$CONFIG" kind delete cluster --name "$LAB_NAME" || status=$?

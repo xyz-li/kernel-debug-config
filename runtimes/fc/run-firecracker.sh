@@ -462,9 +462,18 @@ case "$COMMAND" in
     check) load_session; check ;;
     api)
         [[ $# -ge 2 ]] || fail 'Usage: dev.sh api METHOD /endpoint [JSON]'
+        [[ -S "$API_SOCKET" ]] || fail "Firecracker API socket is missing: $API_SOCKET. Start FC with ./dev.sh run, or launch in VSCode and press F5 to continue past main."
         args=(--fail-with-body --silent --show-error --unix-socket "$API_SOCKET" -X "$1" -H 'Content-Type: application/json')
         if [[ $# -gt 2 ]]; then args+=(--data "$3"); fi
-        curl "${args[@]}" "http://localhost$2"; printf '\n' ;;
+        if curl "${args[@]}" "http://localhost$2"; then
+            printf '\n'
+        else
+            curl_status=$?
+            if [[ $curl_status == 7 ]]; then
+                log "ERROR: No Firecracker API listener at $API_SOCKET. Check that FC is running and has continued past main; the socket may belong to an ended session." >&2
+            fi
+            exit "$curl_status"
+        fi ;;
     stop)
         [[ -f "$WORKDIR/firecracker.pid" ]] || fail 'No managed Firecracker PID file.'
         pid=$(cat "$WORKDIR/firecracker.pid")

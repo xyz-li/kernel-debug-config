@@ -19,7 +19,7 @@ remote() {
 }
 
 case ${1:-help} in
-    bind) python3 "$CH_DIR/../common/bind.py" cloud-hypervisor "${2:?Usage: dev.sh bind /path/to/cloud-hypervisor}" ;;
+    bind) python3 "$CH_DIR/../common/bind.py" ch "${2:?Usage: dev.sh bind /path/to/cloud-hypervisor}" ;;
     setup|doctor|build|prepare|run|debug|attach|guest-debug|guest-gdb|console|ssh|exec|check|api|stop) remote "$@" ;;
     shell)
         if [[ $(uname -s) == Darwin ]]; then

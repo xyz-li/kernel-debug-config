@@ -17,34 +17,36 @@ class BindingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             parent = Path(temporary).resolve()
             environments = parent / 'config-repo/runtimes'
-            for kind in ('common', 'firecracker', 'gvisor', 'kata'):
+            for kind in ('common', 'fc', 'gv', 'kata'):
                 (environments / kind).mkdir(parents=True)
-            for relative in ('common/config.sh', 'firecracker/config.sh'):
+            for relative in ('common/config.sh', 'fc/config.sh'):
                 shutil.copy2(ROOT / relative, environments / relative)
             clean_env = dict(os.environ)
-            for key in ('FC_SOURCE', 'AGENT_SOURCE', 'SOURCE_DIR', 'HOST_KERNEL'):
+            for key in ('FC_SOURCE', 'AGENT_SOURCE', 'SOURCE_DIR', 'HOST_KERNEL', 'WORKDIR'):
                 clean_env.pop(key, None)
             fc = subprocess.run(['bash', '-c', 'source "$1"; printf "%s\\n" "$FC_SOURCE" "$AGENT_SOURCE" "$HOST_KERNEL"',
-                                 'defaults-test', str(environments / 'firecracker/config.sh')],
+                                 'defaults-test', str(environments / 'fc/config.sh')],
                                 check=True, capture_output=True, text=True, env=clean_env)
             self.assertEqual(fc.stdout.splitlines(), [str(parent / 'firecracker'), str(parent / 'guest-agent'),
                                                       str(parent / 'containerization/kernel/vmlinux-arm64')])
             for kind, checkout in [('gvisor', 'gvisor'), ('kata', 'kata-containers')]:
-                common = subprocess.run(['bash', '-c', 'source "$1"; printf "%s\\n" "$SOURCE_DIR" "$HOST_KERNEL"',
+                common = subprocess.run(['bash', '-c', 'source "$1"; printf "%s\\n" "$SOURCE_DIR" "$HOST_KERNEL" "$DEBUG_DIR" "$BIN_DIR" "$WORKDIR"',
                                          'defaults-test', str(environments / 'common/config.sh')],
                                         check=True, capture_output=True, text=True, env=dict(clean_env, DEBUG_KIND=kind))
+                directory = environments / ('gv' if kind == 'gvisor' else kind)
                 self.assertEqual(common.stdout.splitlines(), [str(parent / checkout),
-                                  str(parent / 'containerization/kernel/vmlinux-arm64')])
+                                  str(parent / 'containerization/kernel/vmlinux-arm64'),
+                                  str(directory), str(directory / 'bin'), f'/var/tmp/{kind}-debug'])
 
     def test_binding_preserves_settings_and_handles_quotes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / 'common').mkdir()
             shutil.copy2(ROOT / 'common/bind.py', root / 'common/bind.py')
-            for kind, marker, key in [('firecracker', 'src/firecracker/Cargo.toml', 'FC_SOURCE'),
-                                      ('gvisor', '.bazelversion', 'SOURCE_DIR'),
+            for kind, marker, key in [('fc', 'src/firecracker/Cargo.toml', 'FC_SOURCE'),
+                                      ('gv', '.bazelversion', 'SOURCE_DIR'),
                                       ('kata', 'src/agent/Cargo.toml', 'SOURCE_DIR'),
-                                      ('cloud-hypervisor', 'vmm/src/lib.rs', 'CH_SOURCE')]:
+                                      ('ch', 'vmm/src/lib.rs', 'CH_SOURCE')]:
                 directory = root / kind
                 directory.mkdir()
                 (directory / '.env').write_text('MACHINE=keep-this-machine\n')
@@ -58,11 +60,17 @@ class BindingTests(unittest.TestCase):
                 self.assertEqual((directory / '.env').stat().st_mode & 0o777, 0o600)
                 workspace = json.loads((directory / 'output/debug.local.code-workspace').read_text())
                 self.assertEqual(workspace['folders'][1]['path'], str(source.resolve()))
+                source_name = {'fc': 'firecracker', 'ch': 'cloud-hypervisor', 'gv': 'gvisor'}.get(kind, kind)
                 self.assertEqual([folder['name'] for folder in workspace['folders']],
-                                 [f'{kind}-debug', f'{kind}-source'])
+                                 [f'{kind}-debug', f'{source_name}-source'])
                 self.assertEqual((directory / 'output' / workspace['folders'][0]['path']).resolve(),
                                  directory.resolve())
                 self.assertEqual((source / marker).read_text(), 'fixture\n')
+                if source_name != kind:
+                    subprocess.run(['python3', str(root / 'common/bind.py'), source_name, str(source)],
+                                   check=True, capture_output=True)
+                    self.assertFalse((root / source_name).exists())
+                    self.assertEqual(json.loads((directory / 'output/debug.local.code-workspace').read_text()), workspace)
 
     def test_invalid_checkout_does_not_write_configuration(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -78,7 +86,7 @@ class BindingTests(unittest.TestCase):
         self.assertEqual(result.stdout.split(b'\0')[:-1], [a.encode() for a in arguments])
 
     def test_launch_templates_reference_real_wrappers(self):
-        for kind in ('firecracker', 'gvisor', 'kata', 'cloud-hypervisor'):
+        for kind in ('fc', 'gv', 'kata', 'ch'):
             launch = json.loads((ROOT / kind / '.vscode/launch.json').read_text())
             tasks = json.loads((ROOT / kind / '.vscode/tasks.json').read_text())
             labels = {task['label'] for task in tasks['tasks']}
@@ -91,7 +99,7 @@ class BindingTests(unittest.TestCase):
                     self.assertTrue(Path(wrapper).is_file(), wrapper)
 
     def test_f5_task_dependencies_build_before_launch_and_preserve_attach_symbols(self):
-        for kind in ('firecracker', 'gvisor', 'kata', 'cloud-hypervisor'):
+        for kind in ('fc', 'gv', 'kata', 'ch'):
             directory = ROOT / kind
             tasks_file = json.loads((directory / '.vscode/tasks.json').read_text())
             tasks = {task['label']: task for task in tasks_file['tasks']}
@@ -121,11 +129,11 @@ class BindingTests(unittest.TestCase):
                 chain = commands(config['preLaunchTask']) if 'preLaunchTask' in config else []
                 if config['request'] == 'attach':
                     self.assertFalse(any(command.startswith('./dev.sh build') for command in chain), config['name'])
-                    if kind == 'gvisor':
+                    if kind == 'gv':
                         self.assertEqual(chain, ['./dev.sh dap'])
                     continue
                 self.assertTrue(chain and chain[0].startswith('./dev.sh build'), config['name'])
-                if kind == 'gvisor':
+                if kind == 'gv':
                     self.assertEqual(chain, ['./dev.sh build', './dev.sh dap'])
                     dap = tasks['gVisor: Start Delve DAP']
                     self.assertTrue(dap['isBackground'])
@@ -138,14 +146,14 @@ class BindingTests(unittest.TestCase):
                     self.assertEqual(chain, ['./dev.sh build runtime', './dev.sh bundle', './dev.sh vm-check'])
 
     def test_public_workspaces_resolve_configuration_and_named_source_folders(self):
-        for kind, filename, checkout in [('firecracker', 'firecracker', 'firecracker'),
-                                         ('gvisor', 'gvisor', 'gvisor'), ('kata', 'kata', 'kata-containers'),
-                                         ('cloud-hypervisor', 'cloud-hypervisor', 'cloud-hypervisor')]:
+        for kind, filename, checkout in [('fc', 'firecracker', 'firecracker'),
+                                         ('gv', 'gvisor', 'gvisor'), ('kata', 'kata', 'kata-containers'),
+                                         ('ch', 'cloud-hypervisor', 'cloud-hypervisor')]:
             directory = ROOT / kind
             workspace = json.loads((directory / f'{filename}.code-workspace').read_text())
             folders = {folder['name']: (directory / folder['path']).resolve() for folder in workspace['folders']}
             self.assertEqual(folders[f'{kind}-debug'], directory)
-            self.assertEqual(folders[f'{kind}-source'], ROOT.parent.parent / checkout)
+            self.assertEqual(folders[f'{filename}-source'], ROOT.parent.parent / checkout)
             launch = (directory / '.vscode/launch.json').read_text()
             for name in re.findall(r'\$\{workspaceFolder:([^}]+)\}', launch):
                 self.assertIn(name, folders)

@@ -8,13 +8,13 @@
 
 ```bash
 git clone https://github.com/cloud-hypervisor/cloud-hypervisor.git "$HOME/src/cloud-hypervisor"
-./runtimes/cloud-hypervisor/dev.sh bind "$HOME/src/cloud-hypervisor"
-./runtimes/cloud-hypervisor/dev.sh setup
-./runtimes/cloud-hypervisor/dev.sh build
-./runtimes/cloud-hypervisor/dev.sh run
+./runtimes/ch/dev.sh bind "$HOME/src/cloud-hypervisor"
+./runtimes/ch/dev.sh setup
+./runtimes/ch/dev.sh build
+./runtimes/ch/dev.sh run
 ```
 
-默认直接复用已有 FC 环境的 `/var/tmp/fc-debug-config/rootfs.ext4` **基础文件系统**。这不是运行盘；CH 会离线注入自己的配置，再为每次运行复制独立磁盘。没有基础镜像时，先按 [FC 快速开始](../firecracker/README.md#快速开始)准备 Host 和基础镜像，或在 CH 的 `.env` 中指定已有 Ubuntu/systemd **裸 ext4 文件系统**的 `BASE_ROOTFS`。带分区表的 cloud image 和 qcow2 不能直接用于此注入脚本。
+默认直接复用已有 FC 环境的 `/var/tmp/fc-debug-config/rootfs.ext4` **基础文件系统**。这不是运行盘；CH 会离线注入自己的配置，再为每次运行复制独立磁盘。没有基础镜像时，先按 [FC 快速开始](../fc/README.md#快速开始)准备 Host 和基础镜像，或在 CH 的 `.env` 中指定已有 Ubuntu/systemd **裸 ext4 文件系统**的 `BASE_ROOTFS`。带分区表的 cloud image 和 qcow2 不能直接用于此注入脚本。
 
 还没有 Host 时，先配置 `runtimes/common/.env` 中的 `HOST_KERNEL`，执行 `./runtimes/common/host/dev.sh create`。Host 由[共享入口](../common/host/README.md)管理，不会替换已有 machine 或修改全局默认 machine。Linux ARM64 原生主机跳过 Host 创建，在本目录以 root 执行相同命令。
 
@@ -23,8 +23,8 @@ git clone https://github.com/cloud-hypervisor/cloud-hypervisor.git "$HOME/src/cl
 ## VSCode：F5 构建并停在 main
 
 1. 执行 `bind`、首次 `setup`，准备好上述基础 rootfs。
-2. 在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `runtimes/cloud-hypervisor/output/debug.local.code-workspace`。
-3. 安装建议的 C/C++ 扩展，在 `cloud-hypervisor-source` 中设置源码断点。
+2. 在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `runtimes/ch/output/debug.local.code-workspace`。
+3. 配置目录显示为 `ch-debug`，源码目录显示为 `cloud-hypervisor-source`。安装建议的 C/C++ 扩展，在源码目录中设置断点。
 4. 选择 `CH: Launch serial on Ubuntu Host (macOS)` 或 `CH: Launch ssh on Ubuntu Host (macOS)`，按 F5。
 
 F5 依次执行 `CH: Build` → Linux 原生 Cargo 增量构建 → 准备独立 Guest 磁盘和网络 → Linux GDB → `cloud_hypervisor::main`。停在 main 时 Guest 还没有启动，按 F5 继续后再打开串口或 SSH。F10 单步跳过，F11 单步进入；修改源码后停止调试，再 F5 重新构建。构建失败时先修复错误，避免选择“仍然调试”使用旧二进制。
@@ -50,7 +50,7 @@ CH GNU 构建用 **SIG34 / glibc SIGRTMIN** 唤醒 vCPU，GDB 已配置为透传
 命令行同样可以调试已有构建：
 
 ```bash
-cd runtimes/cloud-hypervisor
+cd runtimes/ch
 ./dev.sh debug
 ```
 
@@ -143,7 +143,7 @@ Guest 内核需要内建 `CONFIG_PCI`、`CONFIG_PCI_HOST_GENERIC`、`CONFIG_VIRT
 
 ```bash
 python3 -m unittest discover -s runtimes/common/tests -v
-python3 -m unittest discover -s runtimes/cloud-hypervisor/tests -v
+python3 -m unittest discover -s runtimes/ch/tests -v
 ```
 
 已在现有 Ubuntu 24.04 ARM64 Host（`fc-ubuntu`）实测 Cloud Hypervisor v55.0.0、上游提交 `10658971adc3`：

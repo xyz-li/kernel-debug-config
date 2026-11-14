@@ -8,16 +8,16 @@ import sys
 
 root = Path(__file__).resolve().parent.parent
 kind, source_arg = sys.argv[1:]
-kind = {"fc": "firecracker"}.get(kind, kind)
-if kind not in {"firecracker", "gvisor", "kata", "cloud-hypervisor"}:
-    raise SystemExit("Expected firecracker, gvisor, kata or cloud-hypervisor")
+kind = {"firecracker": "fc", "cloud-hypervisor": "ch", "gvisor": "gv"}.get(kind, kind)
+if kind not in {"fc", "gv", "kata", "ch"}:
+    raise SystemExit("Expected fc, ch, gv or kata")
 source = Path(source_arg).expanduser().resolve(strict=True)
-marker = {"firecracker": "src/firecracker/Cargo.toml", "gvisor": ".bazelversion", "kata": "src/agent/Cargo.toml",
-          "cloud-hypervisor": "vmm/src/lib.rs"}[kind]
+marker = {"fc": "src/firecracker/Cargo.toml", "gv": ".bazelversion", "kata": "src/agent/Cargo.toml",
+          "ch": "vmm/src/lib.rs"}[kind]
 if not (source / marker).is_file():
     raise SystemExit(f"Not the expected {kind} checkout: missing {marker}")
 directory = root / kind
-key = {"firecracker": "FC_SOURCE", "cloud-hypervisor": "CH_SOURCE"}.get(kind, "SOURCE_DIR")
+key = {"fc": "FC_SOURCE", "ch": "CH_SOURCE"}.get(kind, "SOURCE_DIR")
 env = directory / ".env"
 lines = env.read_text().splitlines() if env.exists() else []
 lines = [line for line in lines if not line.startswith(key + "=")]
@@ -27,7 +27,8 @@ os.chmod(env, 0o600)
 output = directory / "output"
 output.mkdir(exist_ok=True)
 workspace = output / "debug.local.code-workspace"
-data = {"folders": [{"name": f"{kind}-debug", "path": ".."}, {"name": f"{kind}-source", "path": str(source)}],
+source_name = {"fc": "firecracker", "ch": "cloud-hypervisor", "gv": "gvisor"}.get(kind, kind)
+data = {"folders": [{"name": f"{kind}-debug", "path": ".."}, {"name": f"{source_name}-source", "path": str(source)}],
         "settings": {"debug.allowBreakpointsEverywhere": True}}
 workspace.write_text(json.dumps(data, indent=2) + "\n")
 print(f"Bound {kind} source. Open in VSCode: {workspace}")

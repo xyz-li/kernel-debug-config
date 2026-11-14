@@ -5,6 +5,7 @@ DEBUG_ROOT=$(dirname "$DEBUG_COMMON")
 DEBUG_REPO_ROOT=$(dirname "$DEBUG_ROOT")
 DEBUG_SOURCE_ROOT=$(dirname "$DEBUG_REPO_ROOT")
 DEBUG_DIR=$DEBUG_ROOT/${DEBUG_KIND:?Set DEBUG_KIND}
+[[ "$DEBUG_KIND" != gvisor ]] || DEBUG_DIR=$DEBUG_ROOT/gv
 [[ ! -f "$DEBUG_COMMON/.env" ]] || source "$DEBUG_COMMON/.env"
 [[ ! -f "$DEBUG_DIR/.env" ]] || source "$DEBUG_DIR/.env"
 MACHINE=${MACHINE:-fc-ubuntu}

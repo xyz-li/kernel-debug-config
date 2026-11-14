@@ -94,7 +94,7 @@ linux() {
 
 case ${1:-help} in
     help|-h|--help) usage ;;
-    bind) python3 "$FC_DIR/../common/bind.py" firecracker "${2:?Usage: dev.sh bind /path/to/firecracker}" ;;
+    bind) python3 "$FC_DIR/../common/bind.py" fc "${2:?Usage: dev.sh bind /path/to/firecracker}" ;;
     host-build) build_host ;;
     host-create) create_host ;;
     import) import_existing ;;

@@ -6,6 +6,8 @@ if [[ ${1:-} == --guest-mode ]]; then
     shift 2
 fi
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/config.sh"
+source "$FC_DIR/../common/mi-pipe.sh"
+prepare_mi_pipe "$@"
 case "$GUEST_MODE" in liquidmetal|serial|ssh) ;; *) echo 'Invalid Guest mode' >&2; exit 2 ;; esac
 opts=(--env "FC_GUEST_MODE=$GUEST_MODE")
 for key in WORKDIR EXISTING_LAB FC_SOURCE FC_BIN KERNEL BASE_ROOTFS AGENT_BIN VSOCK_CONNECT \
@@ -14,4 +16,4 @@ for key in WORKDIR EXISTING_LAB FC_SOURCE FC_BIN KERNEL BASE_ROOTFS AGENT_BIN VS
     SSH_PORT SSH_IDENTITY; do
     opts+=(--env "$key=${!key}")
 done
-exec /usr/local/bin/container machine run -n "$MACHINE" --root --interactive "${opts[@]}" -- "$@"
+exec /usr/local/bin/container machine run -n "$MACHINE" --root "${MI_PIPE_FLAGS[@]}" "${opts[@]}" -- "$@"

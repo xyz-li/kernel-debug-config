@@ -5,9 +5,9 @@
 ```text
 kernel-debug-config/
 ├── runtimes/                   # Firecracker / Cloud Hypervisor / gVisor / Kata
-│   ├── firecracker/
-│   ├── cloud-hypervisor/
-│   ├── gvisor/
+│   ├── fc/                     # Firecracker 调试配置
+│   ├── ch/                     # Cloud Hypervisor 调试配置
+│   ├── gv/                     # gVisor 调试配置
 │   ├── kata/
 │   └── common/                 # Host、Guest 交互、绑定与调试通道
 ├── kernel/                     # Linux 内核构建和 QEMU/GDB 调试
@@ -30,9 +30,9 @@ kernel-debug-config/
 从仓库根目录使用统一入口：
 
 ```bash
-./runtimes/firecracker/dev.sh bind /path/to/firecracker
-./runtimes/cloud-hypervisor/dev.sh bind /path/to/cloud-hypervisor
-./runtimes/gvisor/dev.sh bind /path/to/gvisor
+./runtimes/fc/dev.sh bind /path/to/firecracker
+./runtimes/ch/dev.sh bind /path/to/cloud-hypervisor
+./runtimes/gv/dev.sh bind /path/to/gvisor
 ./runtimes/kata/dev.sh bind /path/to/kata-containers
 ./kernel/single-container/dev.sh bind /path/to/linux
 ./kernel/multi-container/dev.sh bind /path/to/linux
@@ -44,7 +44,7 @@ kernel-debug-config/
 
 ## 从旧目录升级
 
-目录对应关系：`environments/` → `runtimes/`，其中 `fc/` → `firecracker/`；`one_container/`、`multi_containers/`、`kernel_common/` → `kernel/` 下的相应目录；`net/` → `network/`。原先 `vscode/` 的使用指南移到 `kernel/README.md`，绑定工具移到 `kernel/common/workspace.py`。
+目录对应关系：`environments/` → `runtimes/`，Firecracker、Cloud Hypervisor 和 gVisor 配置目录分别为 `runtimes/fc/`、`runtimes/ch/`、`runtimes/gv/`；此前的 `runtimes/firecracker/`、`runtimes/cloud-hypervisor/`、`runtimes/gvisor/` 也迁移到相应短目录。`one_container/`、`multi_containers/`、`kernel_common/` → `kernel/` 下的相应目录；`net/` → `network/`。原先 `vscode/` 的使用指南移到 `kernel/README.md`，绑定工具移到 `kernel/common/workspace.py`。
 
 更新代码前先停止调试。更新后，如旧目录还保留 `.env`、`bin/` 或 `output/`，执行：
 
@@ -59,8 +59,8 @@ python3 tools/migrate_layout.py
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m unittest discover -s runtimes/common/tests -v
-python3 -m unittest discover -s runtimes/firecracker/tests -v
-python3 -m unittest discover -s runtimes/cloud-hypervisor/tests -v
+python3 -m unittest discover -s runtimes/fc/tests -v
+python3 -m unittest discover -s runtimes/ch/tests -v
 python3 -m unittest discover -s kernel/common/tests -v
 ```
 

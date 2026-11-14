@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Move ignored local state after updating from the original repository layout."""
+"""Move ignored local state after updating from an older repository layout."""
 import argparse
 import hashlib
 import json
@@ -8,9 +8,12 @@ import re
 import stat
 
 RELOCATIONS = {
-    'environments/fc': 'runtimes/firecracker',
-    'environments/cloud-hypervisor': 'runtimes/cloud-hypervisor',
-    'environments/gvisor': 'runtimes/gvisor',
+    'environments/fc': 'runtimes/fc',
+    'environments/cloud-hypervisor': 'runtimes/ch',
+    'runtimes/firecracker': 'runtimes/fc',
+    'runtimes/cloud-hypervisor': 'runtimes/ch',
+    'environments/gvisor': 'runtimes/gv',
+    'runtimes/gvisor': 'runtimes/gv',
     'environments/kata': 'runtimes/kata',
     'environments/common': 'runtimes/common',
     'one_container': 'kernel/single-container',
@@ -22,7 +25,8 @@ RELOCATIONS = {
     'net': 'network',
 }
 STATE_ROOTS = ('environments/fc', 'environments/cloud-hypervisor', 'environments/gvisor',
-               'environments/kata', 'environments/common', 'one_container', 'multi_containers')
+               'environments/kata', 'environments/common', 'one_container', 'multi_containers',
+               'runtimes/firecracker', 'runtimes/cloud-hypervisor', 'runtimes/gvisor')
 METADATA = ('debug.local.code-workspace', 'config.local.json', 'source.local.json',
             'compile_commands.json', 'compile_commands.linux.json')
 
@@ -44,11 +48,15 @@ def write_text(path, text):
 def migrate(repo):
     repo = Path(repo).resolve()
     moves = []
+    destinations = {}
     for old in STATE_ROOTS:
         for name in ('.env', 'bin', 'output'):
             source, target = repo / old / name, repo / RELOCATIONS[old] / name
             if not source.exists():
                 continue
+            if target in destinations:
+                raise ValueError(f'Both {destinations[target]} and {source} target {target}; resolve the conflict first.')
+            destinations[target] = source
             if target.exists():
                 if not (source.is_dir() and target.is_dir() and
                         all(p.name == '.gitkeep' for p in target.iterdir())):
@@ -93,9 +101,14 @@ def migrate(repo):
                     suffix = hashlib.sha256(str(repo / old).encode()).hexdigest()[:8]
                     data.setdefault('project', f'kernel-debug-{old.replace("_", "-")}-{suffix}')
                 data['layout_version'] = 2
-            if name == 'debug.local.code-workspace' and old == 'environments/fc':
+            if name == 'debug.local.code-workspace':
+                labels = {
+                    'runtimes/fc': {'firecracker-debug': 'fc-debug', 'fc-source': 'firecracker-source'},
+                    'runtimes/ch': {'cloud-hypervisor-debug': 'ch-debug'},
+                    'runtimes/gv': {'gvisor-debug': 'gv-debug'},
+                }.get(RELOCATIONS[old], {})
                 for folder in data.get('folders', []):
-                    folder['name'] = {'fc-debug': 'firecracker-debug', 'fc-source': 'firecracker-source'}.get(folder['name'], folder['name'])
+                    folder['name'] = labels.get(folder['name'], folder['name'])
             after = json.dumps(data, indent=2) + '\n'
             if before != after:
                 write_text(path, after)

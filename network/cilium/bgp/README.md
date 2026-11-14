@@ -3,6 +3,8 @@
 使用四节点 Kind 集群、Cilium 和 FRR，向底层网络宣告所有节点的 PodCIDR。完整的 Linux 环境要求、kubeconfig、等待与清理说明见 [部署与验证指南](../README.md)。
 
 ```text
+                  client0 198.18.0.2
+                        |
                      router0 AS65000
                         /       \
              tor0 AS65010       tor1 AS65011

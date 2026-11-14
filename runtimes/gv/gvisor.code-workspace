@@ -1,6 +1,6 @@
 {
   "folders": [
-    {"name": "gvisor-debug", "path": "."},
+    {"name": "gv-debug", "path": "."},
     {"name": "gvisor-source", "path": "../../../gvisor"}
   ],
   "settings": {

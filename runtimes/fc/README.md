@@ -6,14 +6,18 @@
 
 ## 快速开始
 
+下面覆盖首次准备和启动，按实际缺少的条件执行。已有可用 Host、依赖和构建产物时，日常只需 `./dev.sh run`。VSCode Launch 的 F5 会自动构建并启动，无需提前手工执行 `build` 或 `run`。
+
 ```bash
 cd kernel-debug-config/runtimes/fc
-./dev.sh host-create      # 首次：构建 Ubuntu Host 镜像并创建 machine
-./dev.sh import           # 设置 ARTIFACT_MACHINE 后导入已有基础 Guest 镜像；已有缓存可跳过
-./dev.sh setup
-./dev.sh build
+./dev.sh host-create      # macOS 首次没有 Host 时创建；已有 Host 或原生 Linux 可跳过
+# ./dev.sh import         # 可选：设置 ARTIFACT_MACHINE 后迁移旧 machine 的基础镜像
+./dev.sh setup            # 缺少 Host 依赖时安装，通常只需首次执行
+./dev.sh build            # 首次构建或源码修改后执行；VSCode F5 会自动执行
 ./dev.sh run
 ```
+
+不从旧 machine 导入时，`run` 会在准备阶段尝试下载缺少的 Guest 内核/rootfs。LiquidMetal 模式需要另外备好 Agent 二进制；串口和 SSH 模式不依赖 Agent。
 
 另一个终端：
 
@@ -46,7 +50,7 @@ Linux 原生 Host 先安装 Bash，跳过 `host-create` / `import`，在本目�
 ### 无 Agent 串口
 
 ```bash
-# 终端 1，在 runtimes/firecracker/ 中执行
+# 终端 1，在 runtimes/fc/ 中执行
 ./dev.sh --mode serial run
 
 # 终端 2
@@ -110,14 +114,14 @@ continue
 先在本配置仓库根目录绑定已经 clone 的 Firecracker 源码：
 
 ```bash
-./runtimes/firecracker/dev.sh bind /path/to/firecracker
+./runtimes/fc/dev.sh bind /path/to/firecracker
 ```
 
 然后在 VSCode 中操作：
 
 1. 选择菜单 **文件（File）→ 从文件打开工作区（Open Workspace from File…）**。
-2. 选择本仓库中的 `runtimes/firecracker/output/debug.local.code-workspace`。
-3. 确认左侧资源管理器出现两个目录：`firecracker-debug` 是调试脚本和配置，`firecracker-source` 是绑定的 Firecracker 源码。断点设置在 `firecracker-source` 中。
+2. 选择本仓库中的 `runtimes/fc/output/debug.local.code-workspace`。
+3. 确认左侧资源管理器出现两个目录：`fc-debug` 是调试脚本和配置，`firecracker-source` 是绑定的 Firecracker 源码。断点设置在 `firecracker-source` 中。
 4. 安装建议的 **C/C++** 扩展，在“运行和调试”中选择下方相应配置，再按 F5。
 
 三种 Launch 配置均会先执行 `FC: Build`，在 Ubuntu Host 增量编译成功后启动调试，并停在 `firecracker::main`：
@@ -134,10 +138,10 @@ macOS 也可以从本配置仓库根目录用终端打开同一个工作区：
 
 ```bash
 open -a "Visual Studio Code" \
-  runtimes/firecracker/output/debug.local.code-workspace
+  runtimes/fc/output/debug.local.code-workspace
 ```
 
-生成的工作区保存在被 Git 忽略的 `output/` 中；更换源码目录后重新执行 `bind`，再打开生成的工作区。若采用默认的同级源码目录布局，也可以通过上述菜单打开 `runtimes/firecracker/firecracker.code-workspace`。
+生成的工作区保存在被 Git 忽略的 `output/` 中；更换源码目录后重新执行 `bind`，再打开生成的工作区。若采用默认的同级源码目录布局，也可以通过上述菜单打开 `runtimes/fc/firecracker.code-workspace`。
 
 两种调试方式：
 
@@ -150,7 +154,13 @@ F5 的执行链路：VSCode → `FC: Build` task → `./dev.sh build` → `conta
 
 `gdb-pipe.sh` 根据同一份 `config.sh` / `.env` 选择 machine，使用 Apple Container 的标准输入输出连接 Ubuntu GDB，不需要 SSH 服务、SSH Key 或 GDB TCP 监听端口。它实现 VSCode C/C++ 扩展的 [pipeTransport](https://code.visualstudio.com/docs/cpp/pipe-transport)。如果修改 `WORKDIR`，同步更新 Launch 配置中的两个 `/var/tmp/fc-debug-config` 路径。
 
+同一个管道脚本有两类调用：启动 `gdb-host.sh --interpreter=mi` 的持续 GDB/MI 主通道，以及运行中设置断点或点击“暂停”时执行的 `kill -5 <FC_PID>` 等一次性辅助控制命令。只有主通道开启 `--interactive`；辅助命令的标准输入连接 `/dev/null`，避免抢读 VSCode 的调试协议，造成界面显示运行而 FC 实际暂停。两段协议、故障原因和验证步骤见[公共 GDB 管道说明](../common/README.md#gdb-主通道与辅助控制命令)。
+
 配置明确指定 ARM64，并让 GDB 传递 musl 的 `SIGRTMIN`（`SIG35`）。Firecracker 用这个信号唤醒 vCPU；如果 GDB 报 `Real-time event 35` 并暂停，Guest 会一起停止运行。
+
+三种 Launch 配置均将 `unknownBreakpointHandling` 设为 `stop`，让 GDB 预设的 `firecracker::main` 入口断点显示为普通暂停，避免被 C/C++ 调试适配器标成“出现异常”。
+
+停在 `main` 时 API 尚未创建，先按 F5 继续，再执行 `./dev.sh api GET /machine-config`。调试会话结束后需重新 Launch；命令行启动则等待 `./dev.sh run` 输出 Guest 就绪。API 命令通过 `WORKDIR/api.socket` 连接 FC，curl 错误中的 `localhost port 80` 来自 HTTP 请求地址，不表示需要开放 TCP 80 端口。若在 API 处理过程中命中断点，请求会等待继续运行后返回。
 
 调试器运行在 Linux 中，源文件通过相同绝对路径共享到 macOS。GDB 控制的是用户态 VMM 进程。当前上游源码的 debug 构建会嵌入空 seccomp policy，这套配置用于本机开发实验。当前源码还要求 libseccomp 2.6.1，`build` 会按官方发布的 SHA256 校验并编译它，避免 Ubuntu 24.04 自带 2.5.x 缺少接口的问题。
 
@@ -185,18 +195,18 @@ continue
 | `GUEST_MODE` | `liquidmetal` | `liquidmetal`、`serial`、`ssh`；CLI `--mode` 可明确覆盖 |
 | `SSH_PORT` | `22` | Guest 专用 SSH 服务端口 |
 | `SSH_IDENTITY` | `WORKDIR/ssh/id_ed25519` | Linux Host 上的专用无口令客户端密钥 |
-| `EXISTING_LAB` | `runtimes/firecracker/output/import` 的绝对路径 | 由 `dev.sh import` 导入的基础产物 |
-| `FC_BIN` | `runtimes/firecracker/bin/firecracker-debug` | 使用本次源码构建 |
+| `EXISTING_LAB` | `runtimes/fc/output/import` 的绝对路径 | 由 `dev.sh import` 导入的基础产物 |
+| `FC_BIN` | `runtimes/fc/bin/firecracker-debug` | 使用本次源码构建 |
 | `TAP_DEV` | `fc-debug0` | 独立 TAP |
 | `HOST_IP` / `GUEST_IP` | `172.16.51.1` / `172.16.51.2` | `/30` 子网，避开旧实例 `172.16.50.0/30` |
 | `DNS_SERVER` / `DNS_SECONDARY` | `1.1.1.1` / `8.8.8.8` | 注入 Guest 的静态 DNS |
 | `ENABLE_NETWORK` / `ENABLE_NAT` | `1` / `1` | TAP 网络与外网 NAT |
 | `VCPUS` / `MEMORY_MIB` | `2` / `512` | Guest 资源 |
 
-想先用已有 release 二进制启动，设置 `FC_BIN` 为 `runtimes/firecracker/bin/firecracker-release` 的绝对路径。该二进制由 `import` 从旧机导入，没有源码构建的调试符号，也不保证具备 Guest GDB feature。
+想先用已有 release 二进制启动，设置 `FC_BIN` 为 `runtimes/fc/bin/firecracker-release` 的绝对路径。该二进制由 `import` 从旧机导入，没有源码构建的调试符号，也不保证具备 Guest GDB feature。
 
 ```text
-firecracker/
+fc/
 ├── dev.sh                    # macOS/Linux 统一入口
 ├── run-firecracker.sh        # 环境检查、构建、启动、调试、验证与清理
 ├── inject-fc-rootfs.sh        # 离线注入 Agent、systemd 服务、网络与 DNS
@@ -218,7 +228,7 @@ Ubuntu 官方基础镜像没有 `/sbin/init`，所以共享 Host 镜像通过 `c
 
 启动器使用 `flock`，拒绝重复启动和修改运行中的镜像。退出时只清理本次创建的 TAP、带注释的 iptables 规则及 Socket；不会清空防火墙，也不会关闭其他实例需要的全局 IPv4 forwarding。进程异常遭到 SIGKILL 时无法执行清理，先确认对应进程已退出，再处理 `WORKDIR` 的残留 Socket/TAP。
 
-首次缺少缓存时，从 Firecracker 官方 S3 CI 下载，使用临时文件与长度检查，验证 ARM64 Image 魔数和 ext4 文件系统。这些检查不等于签名验证。Linux Host 没有现成 Agent 时，可以在 `guest-agent` 仓库执行 `make release`，再将 Linux ARM64 两个产物复制到 `runtimes/firecracker/bin/guest-agent` 与 `runtimes/firecracker/bin/vsock-connect`。
+首次缺少缓存时，从 Firecracker 官方 S3 CI 下载，使用临时文件与长度检查，验证 ARM64 Image 魔数和 ext4 文件系统。这些检查不等于签名验证。Linux Host 没有现成 Agent 时，可以在 `guest-agent` 仓库执行 `make release`，再将 Linux ARM64 两个产物复制到 `runtimes/fc/bin/guest-agent` 与 `runtimes/fc/bin/vsock-connect`。
 
 ## 参考
 
@@ -230,7 +240,7 @@ Ubuntu 官方基础镜像没有 `/sbin/init`，所以共享 Host 镜像通过 `c
 
 ```bash
 python3 -m unittest discover -s runtimes/common/tests -v
-python3 -m unittest discover -s runtimes/firecracker/tests -v
+python3 -m unittest discover -s runtimes/fc/tests -v
 ```
 
 - [Firecracker Getting Started](https://github.com/firecracker-microvm/firecracker/blob/main/docs/getting-started.md)

@@ -1,6 +1,6 @@
 {
   "folders": [
-    {"name": "firecracker-debug", "path": "."},
+    {"name": "fc-debug", "path": "."},
     {"name": "firecracker-source", "path": "../../../firecracker"}
   ],
   "settings": {

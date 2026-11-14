@@ -9,7 +9,7 @@ runtimes/*/.env.*
 !runtimes/*/.env.example
 runtimes/*/output/
 runtimes/*/bin/*
-!runtimes/firecracker/bin/.gitkeep
+!runtimes/fc/bin/.gitkeep
 
 # Kernel sources, filesystem images and generated workspaces.
 kernel/*/output/

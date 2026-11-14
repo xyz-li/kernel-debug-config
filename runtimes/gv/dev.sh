@@ -45,7 +45,7 @@ if [[ ${1:-} == _linux ]]; then
 fi
 
 case ${1:-help} in
-    bind) python3 "$DEBUG_COMMON/bind.py" gvisor "${2:?Usage: dev.sh bind /path/to/gvisor}" ;;
+    bind) python3 "$DEBUG_COMMON/bind.py" gv "${2:?Usage: dev.sh bind /path/to/gvisor}" ;;
     setup|doctor|build|run|ps) remote "$@" ;;
     dap)
         export MACHINE DEBUG_PORT

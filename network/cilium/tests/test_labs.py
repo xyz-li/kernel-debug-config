@@ -26,7 +26,10 @@ with open(os.environ['LAB_TEST_LOG'], 'a') as stream:
 if os.environ.get('LAB_TEST_FAIL') == tool + ':' + (args[0] if args else ''):
     raise SystemExit(7)
 if tool == 'uname': print(os.environ.get('LAB_TEST_OS', 'Linux'))
+elif tool == 'df': print('Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/test 99999999 0 '+os.environ.get('LAB_TEST_FREE_KB','99999999')+' 0% /')
 elif tool == 'id': print('0')
+elif tool == 'sysctl' and args[0]=='-n':
+    print('2097152' if os.environ.get('LAB_TEST_HIGH_INOTIFY') else '128')
 elif tool == 'kind':
     if args[:2] == ['get','clusters']: print(os.environ.get('LAB_TEST_CLUSTERS',''))
     elif args[:2] == ['create','cluster']:
@@ -35,6 +38,8 @@ elif tool == 'docker':
     if args[0] == 'info':
         print(os.environ.get('LAB_TEST_SECURITY','[]') if 'SecurityOptions' in args[-1] else 'linux')
     elif args[0] == 'context': print(os.environ.get('LAB_TEST_ENDPOINT','unix:///var/run/docker.sock'))
+    elif args[:3] == ['image','save','--help']: print('--platform')
+    elif args[:2] == ['image','inspect']: print('linux/arm64')
     elif args[0] == 'ps': print(os.environ.get('LAB_TEST_CONTAINERS',''))
     elif args[0] == 'exec' and args[2] == 'vtysh':
         command = args[-1]
@@ -60,7 +65,8 @@ class LabTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='network lab ')
         self.root = Path(self.temporary.name).resolve()
         self.addCleanup(self.temporary.cleanup)
-        shutil.copytree(ROOT / 'common', self.root / 'common', ignore=shutil.ignore_patterns('__pycache__'))
+        shutil.copytree(ROOT / 'common', self.root / 'common', ignore=shutil.ignore_patterns('__pycache__', 'output'))
+        shutil.copy2(ROOT / 'vm.sh', self.root / 'vm.sh')
         for lab in ('bgp', 'bgp-ecmp'):
             directory = self.root / lab
             directory.mkdir()
@@ -69,7 +75,7 @@ class LabTests(unittest.TestCase):
                 shutil.copy2(ROOT / lab / name, directory / name)
         binary = self.root / 'bin'
         binary.mkdir()
-        for tool in ('uname','id','docker','kind','clab','helm','kubectl','modprobe'):
+        for tool in ('uname','id','docker','kind','clab','helm','kubectl','modprobe','container','sysctl','df'):
             path = binary / tool
             path.write_text(f'#!{sys.executable}\n' + MOCK)
             path.chmod(0o755)
@@ -98,6 +104,25 @@ class LabTests(unittest.TestCase):
         self.assertNotIn('helm', {call['tool'] for call in self.calls()})
         self.assertNotIn('kubectl', {call['tool'] for call in self.calls()})
 
+    def test_trace_prints_commands_to_stderr_and_preserves_failure_status(self):
+        result = self.run_script(LAB_TRACE='1', LAB_TEST_FAIL='kind:create')
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertIn('kind create cluster', result.stderr)
+        self.assertIn('lab.sh:', result.stderr)
+        self.assertNotIn('kind create cluster', result.stdout)
+
+    def test_macos_entrypoint_selects_vm_and_native_state_root_and_forwards_trace(self):
+        result = subprocess.run([str(self.root/'vm.sh'),'bgp-ecmp','verify'], cwd='/',
+            env=dict(self.environment, LAB_TEST_OS='Darwin', MACHINE='network-vm', LAB_TRACE='1', NETWORK_VM_ROOT='/var/tmp/network labs'),
+            capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        call = next(call for call in self.calls() if call['tool']=='container')
+        self.assertEqual(call['args'][:5], ['machine','run','-n','network-vm','--root'])
+        self.assertIn('LAB_TRACE=1', call['args'])
+        self.assertIn('NETWORK_VM_ROOT=/var/tmp/network labs', call['args'])
+        self.assertIn('NETWORK_VM_LAB=bgp-ecmp', call['args'])
+        self.assertIn('NETWORK_VM_ACTION=verify', call['args'])
+
     def test_both_labs_work_from_an_unrelated_directory_with_explicit_contexts(self):
         for lab in ('bgp','bgp-ecmp'):
             with self.subTest(lab=lab):
@@ -110,6 +135,9 @@ class LabTests(unittest.TestCase):
                 self.assertIn(name, create['args'])
                 self.assertIn(str(self.root/lab/'kind.yaml'), create['args'])
                 self.assertIn('--image', create['args'])
+                saved = next(call for call in calls if call['tool']=='docker' and call['args'][:3]==['image','save','--platform'])
+                self.assertEqual(saved['args'][3], 'linux/arm64')
+                self.assertTrue(any(call['tool']=='kind' and call['args'][:2]==['load','image-archive'] for call in calls))
                 helm = next(call for call in calls if call['tool']=='helm')
                 self.assertIn('kind-'+name, helm['args'])
                 self.assertIn(str(self.root/lab/'cilium'), helm['args'])
@@ -121,11 +149,31 @@ class LabTests(unittest.TestCase):
                 self.assertFalse(any(call['tool']=='kubectl' and 'create' in call['args'] for call in calls))
                 self.assertEqual((self.root/lab/'output/kubeconfig').stat().st_mode & 0o777, 0o600)
 
+    def test_macos_deploy_checks_physical_free_space_before_starting_vm(self):
+        for free_kb, expected in (('1024', 1), ('20971520', 0)):
+            with self.subTest(free_kb=free_kb):
+                self.log.unlink(missing_ok=True)
+                result = subprocess.run([str(self.root/'vm.sh'),'bgp','deploy'], cwd='/',
+                    env=dict(self.environment, LAB_TEST_OS='Darwin', LAB_TEST_FREE_KB=free_kb),
+                    capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertEqual(any(call['tool']=='container' for call in self.calls()), expected==0)
+
     def test_existing_lab_is_not_overwritten(self):
         result = self.run_script(LAB_TEST_CLUSTERS='cilium-bgp')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('already exists', result.stderr)
         self.assertFalse(any(call['tool']=='kind' and call['args'][0]=='create' for call in self.calls()))
+
+    def test_host_limits_are_raised_when_low_and_never_lowered(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        changes = [call['args'][1] for call in self.calls() if call['tool']=='sysctl' and call['args'][0]=='-w']
+        self.assertEqual(changes, ['fs.inotify.max_user_instances=8192','fs.inotify.max_user_watches=1048576'])
+        self.log.unlink()
+        result = self.run_script(LAB_TEST_HIGH_INOTIFY='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(any(call['tool']=='sysctl' and call['args'][0]=='-w' for call in self.calls()))
 
     def test_chart_failure_stops_before_custom_resources_and_workloads(self):
         result = self.run_script(LAB_TEST_FAIL='helm:upgrade')

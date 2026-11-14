@@ -4,11 +4,11 @@
 
 ```bash
 # 在本配置仓库根目录执行
-./runtimes/gvisor/dev.sh bind /path/to/gvisor
-./runtimes/gvisor/dev.sh setup
+./runtimes/gv/dev.sh bind /path/to/gvisor
+./runtimes/gv/dev.sh setup
 ```
 
-在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `runtimes/gvisor/output/debug.local.code-workspace`。源码使用默认同级 `gvisor` 目录时，也可打开 [`gvisor.code-workspace`](gvisor.code-workspace)。工作区包含 `gvisor-debug` 和 `gvisor-source`，断点设在后者。
+在 VSCode 选择 **文件 → 从文件打开工作区**，打开 `runtimes/gv/output/debug.local.code-workspace`。源码使用默认同级 `gvisor` 目录时，也可打开 [`gvisor.code-workspace`](gvisor.code-workspace)。工作区包含 `gv-debug` 和 `gvisor-source`，断点设在后者。
 
 选择 `gVisor: Launch runsc (remote Delve)` 并按 F5，会依次执行 `gVisor: Build`、`gVisor: Start Delve DAP`，等 Linux Delve 输出就绪消息后才连接调试器；无需另外运行 `dev.sh dap`。F10/F11 单步。该入口使用 `--version` 验证启动链路；选择 `gVisor: Run sandbox (remote Delve)` 则执行一个真实 sandbox 示例。
 
@@ -21,10 +21,10 @@
 runsc 是控制进程，Sentry 是另一个进程。要观察 `pkg/sentry/syscalls/` 的执行，先用 F5 Launch 或 `dev.sh build` 生成二进制，再启动一个持续运行的测试 sandbox：
 
 ```bash
-./runtimes/gvisor/dev.sh run --platform=ptrace --network=none do /bin/sleep 300
+./runtimes/gv/dev.sh run --platform=ptrace --network=none do /bin/sleep 300
 
 # 另一终端查看 Linux PID
-./runtimes/gvisor/dev.sh ps
+./runtimes/gv/dev.sh ps
 ```
 
 选择 `gVisor: Attach Sentry or Gofer (Linux PID)`，按 F5 自动启动 Delve 通道并输入 Linux PID，在 `gvisor-source/pkg/sentry/` 设置断点。Attach 保留当前运行进程对应的构建产物。断点命中需要测试进程实际触发相应 syscall；挂到 runsc 的 main 不会自动跟踪 Sentry。首次先在 runsc 入口确认源码路径映射，再调子进程。

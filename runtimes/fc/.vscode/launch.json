@@ -21,6 +21,7 @@
       "MIMode": "gdb",
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
+      "unknownBreakpointHandling": "stop",
       "externalConsole": false,
       "pipeTransport": {
         "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
@@ -68,6 +69,7 @@
       "MIMode": "gdb",
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
+      "unknownBreakpointHandling": "stop",
       "externalConsole": false,
       "pipeTransport": {
         "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
@@ -115,6 +117,7 @@
       "MIMode": "gdb",
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false,
+      "unknownBreakpointHandling": "stop",
       "externalConsole": false,
       "pipeTransport": {
         "pipeProgram": "${workspaceFolder}/gdb-pipe.sh",
