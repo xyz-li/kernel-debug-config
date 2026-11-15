@@ -1,5 +1,9 @@
 # Linux 内核自动构建与调试
 
+macOS 使用 Apple `container` 时，进入 [`apple-container/`](apple-container/README.md)。它直接使用 `container build/run/exec` 和独立原生缓存卷，支持相同的 F5 调试流程，不需要 Docker。默认从 `tinyconfig` 构建 ARM64 内核。
+
+需要 Debian 用户空间、APT 和持久化存储时，进入 [`debian-container/`](debian-container/README.md)：默认 1 CPU / 256 MiB Guest，自动配置网络，整个根目录保存在稀疏 ext4 磁盘中。下面的 Alpine initramfs 定制说明适用于原有三套环境；Debian 的磁盘与更新方式见其独立指南。
+
 `kernel/single-container/` 和 `kernel/multi-container/` 使用相同的自动化入口，各自保留 Docker 镜像、编译缓存、rootfs、运行状态和 VSCode 工作区。默认调试 ARM64 Linux，GDB、QEMU 和编译器均在 Docker 中运行。
 
 ## 第一次使用
@@ -60,7 +64,7 @@ VSCode 提供三种入口：
 
 1. 所选 Alpine 镜像的用户空间和工具。
 2. 本次内核版本对应的模块。
-3. BusyBox init、串口 root shell、QEMU user 网络的 DHCP 配置。
+3. BusyBox init、串口 root shell、QEMU user 网络的静态地址配置；可切换 DHCP。
 4. 本环境 `rootfs-overlay/` 中的自定义文件。
 
 例如新增一个 Guest 测试脚本：
@@ -115,6 +119,7 @@ macOS 源码存放在已有的大小写敏感磁盘映像时，还可在本地 J
 | `rootfs` / `rootfs --force` | 按需 / 强制重新打包 rootfs |
 | `debug` | 构建后暂停启动 QEMU，供 VSCode/GDB 连接 |
 | `start` | 校验并暂停启动已有产物 |
+| `boot` | 校验并正常启动已有产物，跳过编译 |
 | `run` | 构建后直接启动 Guest |
 | `gdb` | 自动构建并进入命令行内核调试 |
 | `console` / `logs` | 交互式串口 / 串口日志 |

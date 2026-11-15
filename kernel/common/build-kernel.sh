@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build on native Docker storage, without writing to the bound source tree.
+# Build on native Linux storage, without writing to the bound source tree.
 set -Eeuo pipefail
 [[ ${ARCH:-arm64} == arm64 ]] || { echo 'Automated workflow currently supports ARCH=arm64.' >&2; exit 2; }
 mkdir -p /cache/source /cache/build /cache/modules /output
@@ -24,10 +24,11 @@ for line in Path('/cache/source-sync.log').read_text().splitlines():
     if item.startswith('>f'):
         os.utime(Path('/cache/source') / name, None)
 PY
+python3 /scripts/kernel/debug_profile.py apply /cache/source "$@"
 base=${KERNEL_BASE_CONFIG:-defconfig}
 [[ "$base" =~ ^[a-zA-Z0-9_]+config$ ]] || { echo 'Invalid KERNEL_BASE_CONFIG.' >&2; exit 2; }
 fragment=/cache/fragment.config
-python3 /scripts/kernel/manifest.py normalize-config /scripts/minimal_debug.config /scripts/kernel/debug.config "$fragment"
+python3 /scripts/kernel/manifest.py normalize-config "${KERNEL_FRAGMENT:-/scripts/minimal_debug.config}" /scripts/kernel/debug.config "$fragment"
 stamp=$( { sha256sum "$fragment" /scripts/kernel/build-kernel.sh /kernel/Makefile; printf '%s\n' "$base" "${CROSS_COMPILE:-}"; } | sha256sum | cut -d' ' -f1)
 make_args=(-C /cache/source O=/cache/build ARCH=arm64 KBUILD_ABS_SRCTREE=1)
 if [[ $(uname -m) != aarch64 && -z ${CROSS_COMPILE:-} ]]; then CROSS_COMPILE=aarch64-linux-gnu-; fi
@@ -38,10 +39,9 @@ if [[ ! -f /cache/build/.config || ! -f /cache/config.sha256 || $(cat /cache/con
     printf '%s\n' "$stamp" > /cache/config.sha256
 fi
 make "${make_args[@]}" olddefconfig
-for symbol in DEBUG_INFO GDB_SCRIPTS BLK_DEV_INITRD DEVTMPFS SERIAL_AMBA_PL011_CONSOLE BINFMT_ELF BINFMT_SCRIPT; do
-    grep -qx "CONFIG_$symbol=y" /cache/build/.config || { echo "Required CONFIG_$symbol did not survive Kconfig resolution." >&2; exit 1; }
-done
+python3 /scripts/kernel/manifest.py check-config /cache/build/.config
 make "${make_args[@]}" -j"${JOBS:-2}" Image modules
+python3 /scripts/kernel/debug_profile.py record /cache/build /output "$@"
 make "${make_args[@]}" scripts_gdb
 release=$(make -s "${make_args[@]}" kernelrelease)
 # Only this kernel's modules are exported; old releases never enter its initramfs.

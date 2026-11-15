@@ -1,0 +1,8 @@
+{
+  "folders": [
+    {"name": "qemu-debug", "path": "."},
+    {"name": "qemu-source", "path": "../../../qemu"}
+  ],
+  "settings": {"debug.allowBreakpointsEverywhere": true},
+  "extensions": {"recommendations": ["ms-vscode.cpptools"]}
+}

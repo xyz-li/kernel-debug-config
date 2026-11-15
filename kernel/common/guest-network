@@ -1,0 +1,65 @@
+#!/bin/sh
+# The launcher uses a fixed QEMU user network. DHCP remains opt-in for tests.
+set -eu
+root=${KERNEL_DEBUG_ROOT:-}
+directory=$root/etc/kernel-debug
+state=$root/run/kernel-debug
+mode_override=${KERNEL_NET_MODE:-}
+interface_override=${KERNEL_NET_IFACE:-}
+KERNEL_NET_MODE=${KERNEL_NET_MODE:-static}
+KERNEL_NET_IFACE=${KERNEL_NET_IFACE:-eth0}
+[ ! -r "$directory/network.conf" ] || . "$directory/network.conf"
+mode=${mode_override:-$KERNEL_NET_MODE}
+interface=${interface_override:-$KERNEL_NET_IFACE}
+mkdir -p "$state"
+reason=configuration-error
+printf 'state=configuring\nmode=%s\ninterface=%s\n' "$mode" "$interface" > "$state/network.status"
+finish() {
+    result=$?
+    if [ "$result" -ne 0 ]; then
+        printf 'state=failed\nmode=%s\ninterface=%s\nreason=%s\n' "$mode" "$interface" "$reason" > "$state/network.status"
+        printf 'KERNEL_DEBUG_NETWORK_FAILED mode=%s interface=%s reason=%s\n' "$mode" "$interface" "$reason" >&2
+    fi
+}
+trap finish 0
+read -r started unused < "$root/proc/uptime"
+printf 'KERNEL_DEBUG_NETWORK_BEGIN mode=%s uptime=%s\n' "$mode" "$started"
+ip link set lo up
+case "$mode" in
+    off)
+        ip link set dev "$interface" down 2>/dev/null || true
+        printf 'state=disabled\nmode=off\n' > "$state/network.status"
+        echo 'KERNEL_DEBUG_NETWORK_DISABLED'
+        exit 0
+        ;;
+    static|dhcp) ;;
+    *) reason=invalid-mode; exit 1;;
+esac
+reason=interface-unavailable
+ip link show dev "$interface" >/dev/null
+ip link set dev "$interface" up
+case "$mode" in
+    static)
+        reason=static-configuration-failed
+        ip -4 address flush dev "$interface" scope global
+        ip -4 address replace 10.0.2.15/24 broadcast + dev "$interface"
+        ip -4 route replace default via 10.0.2.2 dev "$interface"
+        printf 'nameserver 10.0.2.3\n' > "$root/etc/resolv.conf"
+        ;;
+    dhcp)
+        reason=dhcp-timeout
+        rm -f "$state/dhcp.bound"
+        if ! busybox udhcpc -n -q -i "$interface" -t 3 -T 1 -s "$directory/udhcpc" > "$state/udhcpc.log" 2>&1; then
+            cat "$state/udhcpc.log" >&2
+            exit 1
+        fi
+        reason=dhcp-callback-failed
+        if [ ! -s "$state/dhcp.bound" ]; then
+            cat "$state/udhcpc.log" >&2
+            exit 1
+        fi
+        ;;
+esac
+printf 'state=ready\nmode=%s\ninterface=%s\n' "$mode" "$interface" > "$state/network.status"
+read -r finished unused < "$root/proc/uptime"
+printf 'KERNEL_DEBUG_NETWORK_READY mode=%s interface=%s uptime=%s\n' "$mode" "$interface" "$finished"

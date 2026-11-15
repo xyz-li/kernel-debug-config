@@ -118,14 +118,15 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual((target / 'firecracker-debug').read_bytes(), b'local artifact')
 
     def test_runtime_workspaces_keep_sibling_upstream_sources(self):
-        for kind, template, source in [('fc', 'firecracker', 'firecracker'), ('ch', 'cloud-hypervisor', 'cloud-hypervisor'), ('kata', 'kata', 'kata-containers'), ('gv', 'gvisor', 'gvisor')]:
+        for kind, template, source in [('fc', 'firecracker', 'firecracker'), ('ch', 'cloud-hypervisor', 'cloud-hypervisor'), ('kata', 'kata', 'kata-containers'), ('gv', 'gvisor', 'gvisor'), ('qemu', 'qemu', 'qemu')]:
             directory = ROOT / 'runtimes' / kind
             workspace = json.loads((directory / f'{template}.code-workspace').read_text())
             folders = {folder['name']: (directory / folder['path']).resolve() for folder in workspace['folders']}
             self.assertEqual(folders[template + '-source'], ROOT.parent / source)
 
     def test_kernel_defaults_and_legacy_kind_aliases_resolve_to_new_layout(self):
-        for kind, template in [('single-container', 'one-container'), ('multi-container', 'multi-containers')]:
+        for kind, template in [('single-container', 'one-container'), ('multi-container', 'multi-containers'),
+                               ('apple-container', 'apple-container'), ('debian-container', 'debian-container')]:
             directory = ROOT / 'kernel' / kind
             workspace = json.loads((directory / f'{template}.code-workspace').read_text())
             self.assertEqual((directory / workspace['folders'][1]['path']).resolve(), ROOT / 'linux-source')

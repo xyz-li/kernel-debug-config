@@ -1,0 +1,16 @@
+#!/bin/sh
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+mkdir -p /dev/pts /dev/shm /run /tmp /sys/kernel/debug /sys/kernel/tracing
+busybox mount -t devpts devpts /dev/pts
+busybox mount -t tmpfs -o size=16m tmpfs /run
+busybox mount -t tmpfs -o size=32m,mode=1777 tmpfs /tmp
+busybox mount -t tmpfs -o size=16m,mode=1777 tmpfs /dev/shm
+busybox mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+busybox mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null || true
+busybox hostname kernel-debian
+ip link set lo up
+busybox sysctl -w net.ipv4.ping_group_range='0 2147483647' >/dev/null 2>&1 || true
+ip link set eth0 up
+busybox udhcpc -n -q -i eth0 -t 3 -T 1 -s /etc/kernel-debug/udhcpc 2>/dev/null || true
+printf '\nKERNEL_DEBUG_READY %s\n' "$(uname -r)"
+printf 'Debian root shell on ttyAMA0; / is a persistent ext4 disk.\n'

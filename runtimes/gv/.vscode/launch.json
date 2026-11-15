@@ -9,11 +9,7 @@
       "substitutePath": [
         {
           "from": "${workspaceFolder:gvisor-source}",
-          "to": "gvisor.dev/gvisor"
-        },
-        {
-          "from": "${workspaceFolder:gvisor-source}",
-          "to": "/proc/self/cwd"
+          "to": ""
         }
       ],
       "name": "gVisor: Launch runsc (remote Delve)",
@@ -34,11 +30,7 @@
       "substitutePath": [
         {
           "from": "${workspaceFolder:gvisor-source}",
-          "to": "gvisor.dev/gvisor"
-        },
-        {
-          "from": "${workspaceFolder:gvisor-source}",
-          "to": "/proc/self/cwd"
+          "to": ""
         }
       ],
       "name": "gVisor: Run sandbox (remote Delve)",
@@ -48,7 +40,7 @@
       "program": "${workspaceFolder}/bin/runsc",
       "args": [
         "--root=/var/tmp/gvisor-debug/state",
-        "--platform=ptrace",
+        "--platform=systrap",
         "--network=none",
         "do",
         "/bin/echo",
@@ -64,25 +56,13 @@
       "substitutePath": [
         {
           "from": "${workspaceFolder:gvisor-source}",
-          "to": "gvisor.dev/gvisor"
-        },
-        {
-          "from": "${workspaceFolder:gvisor-source}",
-          "to": "/proc/self/cwd"
+          "to": ""
         }
       ],
       "name": "gVisor: Attach Sentry or Gofer (Linux PID)",
-      "preLaunchTask": "gVisor: Start Delve DAP",
+      "preLaunchTask": "gVisor: Attach Linux process",
       "request": "attach",
-      "mode": "local",
-      "processId": "${input:linuxPid}"
-    }
-  ],
-  "inputs": [
-    {
-      "id": "linuxPid",
-      "type": "promptString",
-      "description": "Linux Sentry/Gofer PID from dev.sh ps"
+      "mode": "remote"
     }
   ]
 }

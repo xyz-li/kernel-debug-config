@@ -4,6 +4,19 @@
     {"name": "gvisor-source", "path": "../../../gvisor"}
   ],
   "settings": {
-    "debug.allowBreakpointsEverywhere": true
+    "debug.allowBreakpointsEverywhere": true,
+    "go.toolsEnvVars": {
+      "GOPACKAGESDRIVER": "./tools/gopackagesdriver.sh"
+    },
+    "gopls": {
+      "build.env": {
+        "GOOS": "linux",
+        "GOPACKAGESDRIVER": "./tools/gopackagesdriver.sh"
+      },
+      "build.workspaceFiles": ["**/BUILD", "**/*.{bzl,bazel}"],
+      "build.directoryFilters": ["-bazel-bin", "-bazel-out", "-bazel-testlogs", "-bazel-gvisor", "-output"]
+    },
+    "go.lintOnSave": "off",
+    "go.vetOnSave": "off"
   }
 }

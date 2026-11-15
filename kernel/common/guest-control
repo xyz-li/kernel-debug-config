@@ -1,0 +1,18 @@
+#!/bin/sh
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+while :; do
+    port=
+    for name in /sys/class/virtio-ports/*/name; do
+        [ -f "$name" ] || continue
+        if [ "$(cat "$name")" = kernel-debug.control ]; then port=/dev/$(basename "$(dirname "$name")"); break; fi
+    done
+    [ -n "$port" ] && break
+    sleep 1
+done
+exec 3<>"$port"
+while IFS= read -r command <&3; do
+    case "$command" in
+        shutdown) busybox sync; printf 'SYNCED\n' >&3; busybox poweroff;;
+        sync) busybox sync; printf 'SYNCED\n' >&3;;
+    esac
+done

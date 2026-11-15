@@ -13,7 +13,9 @@ import termios
 import tty
 
 from manifest import file_hash, write_json
+from mi_pipe import pipe_command
 from layout import ALIASES, KERNEL_ROOT, REPO_ROOT, SERVICES, canonical
+from debug_profile import FLAGS as LOCAL_DEBUG_FLAGS, sources as debug_source_paths
 
 REPO = REPO_ROOT
 
@@ -43,8 +45,21 @@ class Environment:
         return subprocess.run(self.compose + arguments, env=self.environment, check=True,
                               text=capture, stdout=subprocess.PIPE if capture else None)
 
-    def exec(self, arguments, capture=False):
+    def exec(self, arguments, capture=False, interactive=False):
         return self.call(['exec', '-T', self.service, *arguments], capture)
+
+    def exec_interactive(self, arguments):
+        return self.call(['exec', self.service, *arguments])
+
+    def pipe(self, arguments):
+        arguments, interactive = pipe_command(arguments)
+        if not interactive:
+            with open(os.devnull, 'rb') as null:
+                os.dup2(null.fileno(), 0)
+        os.execvpe('docker', self.compose + ['exec', '-T', self.service, *arguments], self.environment)
+
+    def running(self):
+        return bool(self.call(['ps', '-q', '--status', 'running', self.service], True).stdout.strip())
 
     def validate_source(self):
         image = self.local.get('source_image')
@@ -103,8 +118,7 @@ class Environment:
         self.qemu('stop')
 
     def refuse_running(self):
-        running = self.call(['ps', '-q', '--status', 'running', self.service], True)
-        if running.stdout.strip():
+        if self.running():
             status = json.loads(self.qemu('status', True).stdout)
             if status['running']:
                 raise ValueError('Stop the current debug session before rebuilding or recreating its container.')
@@ -113,8 +127,10 @@ class Environment:
         self.refuse_running()
         self.up()
         self.stopped()
-        self.exec(['/bin/bash', '/scripts/kernel/build-kernel.sh'])
-        write_json(self.output / 'source.local.json', dict(source=str(self.source)))
+        selected = self.debug_sources()
+        self.exec(['/bin/bash', '/scripts/kernel/build-kernel.sh', *selected])
+        write_json(self.output / 'source.local.json', dict(source=str(self.source), debug_sources=selected,
+                                                         debug_flags=LOCAL_DEBUG_FLAGS if selected else []))
         database = self.output / 'compile_commands.linux.json'
         if database.exists():
             def mapped(value):
@@ -129,18 +145,32 @@ class Environment:
                     entry['arguments'] = [mapped(argument) for argument in entry['arguments']]
             write_json(self.output / 'compile_commands.json', entries)
 
+    def debug_sources(self):
+        configured = os.environ.get('KERNEL_DEBUG_SOURCES')
+        return debug_source_paths(shlex.split(configured) if configured is not None else
+                                  getattr(self, 'local', {}).get('debug_sources', []))
+
+    def matching_build(self, record):
+        selected = self.debug_sources()
+        return (record.get('source') == str(self.source) and
+                record.get('debug_sources', []) == selected and
+                record.get('debug_flags', []) == (LOCAL_DEBUG_FLAGS if selected else []))
+
     def rootfs(self, force=False):
         self.refuse_running()
         source_record = self.output / 'source.local.json'
-        if not (self.output / 'kernel.json').exists() or not source_record.exists() or json.loads(source_record.read_text())['source'] != str(self.source):
+        if not (self.output / 'kernel.json').exists() or not source_record.exists() or not self.matching_build(json.loads(source_record.read_text())):
             self.build()
         else:
             self.refuse_running()
             record = self.output / 'source.local.json'
-            if not record.exists() or json.loads(record.read_text())['source'] != str(self.source):
+            if not record.exists() or not self.matching_build(json.loads(record.read_text())):
                 raise ValueError('No build for this source binding; run dev.sh build first.')
             self.up()
             self.stopped()
+        self.package_rootfs(force)
+
+    def package_rootfs(self, force):
         image = self.environment['ROOTFS_BUILDER_IMAGE']
         identity = subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Id}}', image], text=True).strip()
         self.call(['run', '--rm', '-T', '-e', f'ROOTFS_IMAGE_ID={identity}', '-e', f'ROOTFS_FORCE={int(force)}',
@@ -153,41 +183,62 @@ class Environment:
         else:
             self.refuse_running()
             record = self.output / 'source.local.json'
-            if not record.exists() or json.loads(record.read_text())['source'] != str(self.source):
-                raise ValueError('Existing artifacts do not match this source binding; run dev.sh build first.')
+            if not record.exists() or not self.matching_build(json.loads(record.read_text())):
+                raise ValueError('Existing artifacts do not match this source binding or local-variable profile; '
+                                 'run dev.sh build or select "Kernel: Build and debug (automatic)" first.')
             self.up()
             self.stopped()
         self.qemu('start' if paused else 'run')
 
     def stop(self):
         # Does not start a stopped container just to stop a VM.
-        result = self.call(['ps', '-q', '--status', 'running', self.service], True)
-        if result.stdout.strip():
+        if self.running():
             self.qemu('stop')
+
+    def down(self):
+        self.stop()
+        self.call(['stop', self.service])
+
+    def prepare_shell(self):
+        # Reuse a running container: compose up may recreate it after an image
+        # or configuration change, killing the QEMU being inspected.
+        if not self.running():
+            self.up()
 
     def terminal(self, arguments):
         old = termios.tcgetattr(0) if os.isatty(0) else None
         try:
             if old is not None:
                 tty.setraw(0)
-            self.exec(arguments)
+            self.exec(arguments, interactive=True)
         finally:
             if old is not None:
                 termios.tcsetattr(0, termios.TCSADRAIN, old)
 
 
-def main():
+def make_environment(kind):
+    if canonical(kind) == 'debian-container':
+        from debian import DebianEnvironment
+        return DebianEnvironment()
+    if canonical(kind) == 'apple-container':
+        from apple import AppleEnvironment
+        return AppleEnvironment('apple-container')
+    return Environment(kind)
+
+
+def main(environment_type=None):
+    environment_type = environment_type or make_environment
     # MI pipe arguments are passed as argv, without a second shell or task output.
     if len(sys.argv) >= 4 and sys.argv[2] == 'pipe' and sys.argv[1] in (*SERVICES, *ALIASES):
-        environment = Environment(sys.argv[1])
-        os.execvpe('docker', environment.compose + ['exec', '-T', environment.service, *sys.argv[3:]], environment.environment)
+        environment_type(sys.argv[1]).pipe(sys.argv[3:])
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('environment', choices=(*SERVICES, *ALIASES))
-    parser.add_argument('command', choices=('bind', 'setup', 'up', 'build', 'rootfs', 'debug', 'start', 'run', 'stop', 'down', 'status', 'console', 'logs', 'gdb', 'shell'))
+    parser.add_argument('command', choices=('bind', 'setup', 'up', 'build', 'rootfs', 'debug', 'start', 'boot', 'run', 'stop', 'down', 'status', 'console', 'logs', 'gdb', 'shell'))
     parser.add_argument('source', nargs='?', help='Source directory for bind')
-    parser.add_argument('--force', action='store_true', help='Rebuild Docker images or rootfs')
+    parser.add_argument('--force', action='store_true', help='Rebuild container images or rootfs')
     args = parser.parse_args()
-    environment = Environment(args.environment)
+    environment = environment_type(args.environment)
     with open(environment.output / 'workflow.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         command = args.command
@@ -206,16 +257,14 @@ def main():
             environment.rootfs()
         elif command == 'rootfs':
             environment.rootfs(args.force)
-        elif command in ('debug', 'run', 'start'):
-            environment.debug(rebuild=command != 'start', paused=command != 'run')
+        elif command in ('debug', 'run', 'start', 'boot'):
+            environment.debug(rebuild=command not in ('start', 'boot'), paused=command not in ('run', 'boot'))
         elif command == 'stop':
             environment.stop()
         elif command == 'down':
-            environment.stop()
-            environment.call(['stop', environment.service])
+            environment.down()
         elif command == 'status':
-            running = environment.call(['ps', '-q', '--status', 'running', environment.service], True)
-            if running.stdout.strip():
+            if environment.running():
                 environment.qemu('status')
             else:
                 print('{"running": false}')
@@ -226,14 +275,14 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_UN)
             environment.exec(['tail', '-n', '100', '-f', '/output/console.log'])
         elif command == 'shell':
-            environment.up()
+            environment.prepare_shell()
             fcntl.flock(lock, fcntl.LOCK_UN)
-            environment.call(['exec', environment.service, '/bin/bash'])
+            environment.exec_interactive(['/bin/bash'])
         elif command == 'gdb':
             environment.debug()
             fcntl.flock(lock, fcntl.LOCK_UN)
             try:
-                environment.call(['exec', environment.service, 'gdb-multiarch', '-q', '/output/vmlinux',
+                environment.exec_interactive(['gdb-multiarch', '-q', '/output/vmlinux',
                     '-ex', 'target remote /cache/run/gdb.sock', '-ex', 'hbreak start_kernel', '-ex', 'continue'])
             finally:
                 environment.stop()

@@ -10,11 +10,12 @@
 | `bind.py` | 检查上游源码，保存本地绑定并生成 VSCode 工作区 |
 | `config.sh` | gVisor/Kata 共用的 Host、工具安装与命令传输 |
 | `dap_bridge.py` | macOS 到 Linux 的 Delve DAP 通道 |
+| `dlv_server.py` | Linux Delve 的会话锁与退出清理；转发断开时自动结束调试器 |
 | `mi-pipe.sh` | GDB/MI 输入转发；隔离暂停等辅助命令的标准输入 |
 | `tools.py` | 校验并安装官方 Go 工具链 |
 | `tests/` | 公共工具和运行时调试配置的回归测试 |
 
-共享配置放在 `runtimes/common/.env`，可参考 `.env.example`；四种运行时先读取共享设置，再读取自己的 `.env`。Firecracker 和 Cloud Hypervisor 的运行目录、网络、密钥与磁盘仍由各自的 `config.sh` 决定。
+共享配置放在 `runtimes/common/.env`，可参考 `.env.example`；各运行时先读取共享设置，再读取自己的 `.env`。Firecracker 和 Cloud Hypervisor 的运行目录、网络、密钥与磁盘仍由各自的 `config.sh` 决定。QEMU 使用独立普通容器，不读取 `MACHINE` 来启动 machine；具体入口见 [QEMU 指南](../qemu/README.md)。
 
 Kata 的 OCI bundle 和 VM 资产检查属于 `runtimes/kata/tools/`，不再放在公共目录。
 

@@ -1,12 +1,20 @@
 #!/bin/sh
+set -eu
+root=${KERNEL_DEBUG_ROOT:-}
+state=$root/run/kernel-debug
 case "$1" in
     bound|renew)
-        prefix=$(python3 -c 'import ipaddress,sys; print(ipaddress.IPv4Network("0.0.0.0/" + sys.argv[1]).prefixlen)' "$subnet")
-        ip addr flush dev "$interface"
-        ip addr add "$ip/$prefix" dev "$interface"
-        ip link set "$interface" up
-        if [ -n "$router" ]; then ip route replace default via "${router%% *}" dev "$interface"; fi
-        : > /etc/resolv.conf
-        for server in $dns; do echo "nameserver $server" >> /etc/resolv.conf; done
+        # Preserve IPv6 link-local addresses and only replace the DHCP IPv4 lease.
+        ip -4 address flush dev "$interface" scope global
+        busybox ifconfig "$interface" "$ip" netmask "$subnet" up
+        if [ -n "${router:-}" ]; then ip -4 route replace default via "${router%% *}" dev "$interface"; fi
+        : > "$root/etc/resolv.conf"
+        for server in ${dns:-}; do printf 'nameserver %s\n' "$server" >> "$root/etc/resolv.conf"; done
+        mkdir -p "$state"
+        printf '%s\n' "$ip" > "$state/dhcp.bound"
+        ;;
+    deconfig)
+        ip -4 address flush dev "$interface" scope global
+        rm -f "$state/dhcp.bound"
         ;;
 esac

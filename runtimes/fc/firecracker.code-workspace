@@ -4,6 +4,10 @@
     {"name": "firecracker-source", "path": "../../../firecracker"}
   ],
   "settings": {
-    "debug.allowBreakpointsEverywhere": true
+    "debug.allowBreakpointsEverywhere": true,
+    "rust-analyzer.cargo.target": "aarch64-unknown-linux-musl",
+    "rust-analyzer.cargo.buildScripts.enable": false,
+    "rust-analyzer.procMacro.enable": false,
+    "rust-analyzer.checkOnSave": false
   }
 }

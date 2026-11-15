@@ -39,8 +39,9 @@ cp -a "/output/modules/$release" "$root/lib/modules/"
 rm -f "$root/lib/modules/$release/build" "$root/lib/modules/$release/source"
 cp /scripts/kernel/guest-init "$root/init"
 cp /scripts/kernel/guest-rcS "$root/etc/kernel-debug/rcS"
+cp /scripts/kernel/guest-network "$root/etc/kernel-debug/network"
 cp /scripts/kernel/guest-udhcpc "$root/etc/kernel-debug/udhcpc"
-chmod 755 "$root/init" "$root/etc/kernel-debug/rcS" "$root/etc/kernel-debug/udhcpc"
+chmod 755 "$root/init" "$root/etc/kernel-debug/rcS" "$root/etc/kernel-debug/network" "$root/etc/kernel-debug/udhcpc"
 cat > "$root/etc/inittab" <<'EOF'
 ::sysinit:/etc/kernel-debug/rcS
 ttyAMA0::respawn:/bin/sh -l

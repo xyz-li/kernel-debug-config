@@ -9,6 +9,7 @@
       "program": "/output/vmlinux",
       "cwd": "/kernel",
       "MIMode": "gdb",
+      "unknownBreakpointHandling": "stop",
       "preLaunchTask": "Kernel: Prepare debug VM",
       "launchCompleteCommand": "exec-continue",
       "pipeTransport": {
@@ -24,9 +25,18 @@
         "quoteArgs": false
       },
       "sourceFileMap": {
-        "/cache/source": "${workspaceFolder:kernel-source}",
-        "/cache/build": "${workspaceFolder:kernel-config}/output/generated",
-        "/kernel": "${workspaceFolder:kernel-source}"
+        "/cache/source": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": true
+        },
+        "/cache/build": {
+          "editorPath": "${workspaceFolder:kernel-config}/output/generated",
+          "useForBreakpoints": true
+        },
+        "/kernel": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": false
+        }
       },
       "setupCommands": [
         {
@@ -58,6 +68,7 @@
       "program": "/output/vmlinux",
       "cwd": "/kernel",
       "MIMode": "gdb",
+      "unknownBreakpointHandling": "stop",
       "preLaunchTask": "Kernel: Start QEMU",
       "launchCompleteCommand": "exec-continue",
       "pipeTransport": {
@@ -73,9 +84,18 @@
         "quoteArgs": false
       },
       "sourceFileMap": {
-        "/cache/source": "${workspaceFolder:kernel-source}",
-        "/cache/build": "${workspaceFolder:kernel-config}/output/generated",
-        "/kernel": "${workspaceFolder:kernel-source}"
+        "/cache/source": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": true
+        },
+        "/cache/build": {
+          "editorPath": "${workspaceFolder:kernel-config}/output/generated",
+          "useForBreakpoints": true
+        },
+        "/kernel": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": false
+        }
       },
       "setupCommands": [
         {
@@ -107,6 +127,7 @@
       "program": "/output/vmlinux",
       "cwd": "/kernel",
       "MIMode": "gdb",
+      "unknownBreakpointHandling": "stop",
       "launchCompleteCommand": "None",
       "pipeTransport": {
         "pipeProgram": "${workspaceFolder:kernel-config}/dev.sh",
@@ -121,9 +142,18 @@
         "quoteArgs": false
       },
       "sourceFileMap": {
-        "/cache/source": "${workspaceFolder:kernel-source}",
-        "/cache/build": "${workspaceFolder:kernel-config}/output/generated",
-        "/kernel": "${workspaceFolder:kernel-source}"
+        "/cache/source": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": true
+        },
+        "/cache/build": {
+          "editorPath": "${workspaceFolder:kernel-config}/output/generated",
+          "useForBreakpoints": true
+        },
+        "/kernel": {
+          "editorPath": "${workspaceFolder:kernel-source}",
+          "useForBreakpoints": false
+        }
       },
       "setupCommands": [
         {

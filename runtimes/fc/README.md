@@ -166,6 +166,25 @@ F5 的执行链路：VSCode → `FC: Build` task → `./dev.sh build` → `conta
 
 调试器运行在 Linux 中，源文件通过相同绝对路径共享到 macOS。GDB 控制的是用户态 VMM 进程。当前上游源码的 debug 构建会嵌入空 seccomp policy，这套配置用于本机开发实验。当前源码还要求 libseccomp 2.6.1，`build` 会按官方发布的 SHA256 校验并编译它，避免 Ubuntu 24.04 自带 2.5.x 缺少接口的问题。
 
+### macOS 上的 rust-analyzer 后台构建错误
+
+若 rust-analyzer 日志出现 `aarch64-apple-darwin`、`ld: library 'seccomp' not found` 或 `linux/userfaultfd.h file not found`，说明编辑器在 macOS 上执行了 Cargo 构建脚本。这条后台分析链路与 F5 的 Ubuntu Host 构建任务相互独立；Firecracker 的 Linux 依赖需要在 Linux 中构建。
+
+FC 的公开工作区模板默认采用“macOS 源码解析、Ubuntu 编译”的配置：
+
+| 工作区设置 | 值 | 用途 |
+| --- | --- | --- |
+| `rust-analyzer.cargo.target` | `aarch64-unknown-linux-musl` | 按 Linux 目标解析条件编译 |
+| `rust-analyzer.cargo.buildScripts.enable` | `false` | 关闭本地构建脚本执行 |
+| `rust-analyzer.procMacro.enable` | `false` | 关闭需要编译和加载动态库的过程宏支持；单独关闭构建脚本仍可能被过程宏支持重新启用 |
+| `rust-analyzer.checkOnSave` | `false` | 关闭本地保存时的 Cargo 检查 |
+
+这些设置放在 [`firecracker.code-workspace`](firecracker.code-workspace) 的 `settings` 中，`dev.sh bind` 生成的本地工作区也会继承它们。多根工作区中，仅修改 `fc-debug/.vscode/settings.json` 不会为另一个 `firecracker-source` 根目录设置 Cargo 分析选项，因此需要使用工作区级设置。
+
+已有 `output/debug.local.code-workspace` 时，将表中四项加入该文件的 `settings`，或重新执行 `./dev.sh bind /path/to/firecracker`。随后在命令面板执行 **Rust Analyzer: Restart server**；若仍显示旧诊断，执行 **Developer: Reload Window**。实际编译使用 `./dev.sh build` 或 F5 Launch。
+
+这个配置保留基础语法和源码导航；依赖构建脚本生成的代码、过程宏展开及完整类型诊断会受限。需要完整分析时，在配置好依赖的 Linux 环境中打开源码，并将上述后三项恢复为 `true`。`overly long loop turn` 是分析耗时提示，应与 Linux 依赖构建失败分别判断。
+
 ## Guest 内核断点
 
 这是另一条调试路径，需要 `gdb` feature 的 Firecracker，以及同一次内核构建生成的原始 ARM64 `Image` 和未剥离符号的 ELF `vmlinux`。下载缓存中的 `guest-vmlinux` 实际上是 raw Image，不能当作 GDB 符号文件。

@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "options": {"cwd": "${workspaceFolder}"},
+  "tasks": [
+    {"label": "QEMU: Build", "type": "shell", "command": "./dev.sh build", "problemMatcher": [], "group": "build"},
+    {"label": "QEMU: Start container", "type": "shell", "command": "./dev.sh up", "problemMatcher": []},
+    {"label": "QEMU: Guest console", "type": "shell", "command": "./dev.sh console", "problemMatcher": []},
+    {"label": "QEMU: Stop", "type": "shell", "command": "./dev.sh stop", "problemMatcher": []},
+    {"label": "QEMU: Stop container", "type": "shell", "command": "./dev.sh down", "problemMatcher": []}
+  ]
+}

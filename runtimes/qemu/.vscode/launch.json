@@ -1,0 +1,59 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "QEMU: Build and debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/cache/qemu-build/qemu-system-aarch64",
+      "cwd": "/cache/qemu-build",
+      "targetArchitecture": "arm64",
+      "MIMode": "gdb",
+      "preLaunchTask": "QEMU: Build",
+      "postDebugTask": "QEMU: Stop",
+      "stopAtEntry": true,
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/dev.sh",
+        "pipeArgs": ["pipe"],
+        "debuggerPath": "/scripts/runtime/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "setupCommands": [
+        {"text": "set pagination off"},
+        {"text": "set disable-randomization off"}
+      ],
+      "sourceFileMap": {
+        "/cache/qemu-source": {"editorPath": "${workspaceFolder:qemu-source}", "useForBreakpoints": true},
+        "/src/qemu": {"editorPath": "${workspaceFolder:qemu-source}", "useForBreakpoints": false}
+      }
+    },
+    {
+      "name": "QEMU: Debug existing build",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/cache/qemu-build/qemu-system-aarch64",
+      "cwd": "/cache/qemu-build",
+      "targetArchitecture": "arm64",
+      "MIMode": "gdb",
+      "preLaunchTask": "QEMU: Start container",
+      "postDebugTask": "QEMU: Stop",
+      "stopAtEntry": true,
+      "externalConsole": false,
+      "pipeTransport": {
+        "pipeProgram": "${workspaceFolder}/dev.sh",
+        "pipeArgs": ["pipe"],
+        "debuggerPath": "/scripts/runtime/gdb-host.sh",
+        "quoteArgs": false
+      },
+      "setupCommands": [
+        {"text": "set pagination off"},
+        {"text": "set disable-randomization off"}
+      ],
+      "sourceFileMap": {
+        "/cache/qemu-source": {"editorPath": "${workspaceFolder:qemu-source}", "useForBreakpoints": true},
+        "/src/qemu": {"editorPath": "${workspaceFolder:qemu-source}", "useForBreakpoints": false}
+      }
+    }
+  ]
+}

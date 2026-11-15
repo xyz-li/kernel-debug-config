@@ -57,6 +57,34 @@
       }
     },
     {
+      "label": "gVisor: Attach Linux process",
+      "type": "process",
+      "command": "./dev.sh",
+      "args": ["attach", "${input:linuxPid}"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "gvisor-attach",
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+): (error: .+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 4
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^DAP bridge listening at ",
+          "endsPattern": "^API server listening at: "
+        }
+      },
+      "presentation": {
+        "panel": "dedicated"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
       "label": "gVisor: Prepare launch",
       "dependsOrder": "sequence",
       "dependsOn": ["gVisor: Build", "gVisor: Start Delve DAP"],
@@ -70,6 +98,13 @@
       "options": {
         "cwd": "${workspaceFolder}"
       }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "linuxPid",
+      "type": "promptString",
+      "description": "Linux Sentry/Gofer PID from ./dev.sh ps"
     }
   ]
 }

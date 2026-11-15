@@ -1,0 +1,18 @@
+#!/bin/busybox sh
+export PATH=/bin
+busybox mount -t proc proc /proc
+busybox mount -t sysfs sysfs /sys
+busybox mount -t devtmpfs devtmpfs /dev
+busybox mount -t ext4 -o rw /dev/vda /newroot || exec busybox sh
+release=$(busybox cat /kernel.release)
+expected=$(busybox cat /modules.hash)
+previous=$(busybox cat /newroot/etc/kernel-debug/modules.hash 2>/dev/null || true)
+if [ "$expected" != "$previous" ]; then
+    busybox mkdir -p /newroot/lib/modules /newroot/etc/kernel-debug
+    busybox rm -rf "/newroot/lib/modules/$release"
+    busybox cp -a "/lib/modules/$release" /newroot/lib/modules/
+    busybox cp /modules.hash /newroot/etc/kernel-debug/modules.hash
+    busybox sync
+fi
+for directory in dev proc sys; do busybox mount --move "/$directory" "/newroot/$directory"; done
+exec busybox switch_root /newroot /init

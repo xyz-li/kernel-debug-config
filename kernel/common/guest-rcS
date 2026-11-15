@@ -11,11 +11,9 @@ mount -t tmpfs tmpfs /dev/shm
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
 mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null || true
 hostname kernel-debug
-ip link set lo up
 sysctl -w net.ipv4.ping_group_range='0 2147483647' >/dev/null 2>&1 || true
-if ip link show eth0 >/dev/null 2>&1; then
-    ip link set eth0 up
-    udhcpc -n -q -i eth0 -t 3 -T 1 -s /etc/kernel-debug/udhcpc 2>/dev/null || true
+if ! /etc/kernel-debug/network; then
+    echo 'Network configuration failed; root shell remains available. See /run/kernel-debug/network.status.' >&2
 fi
 printf '\nKERNEL_DEBUG_READY %s\n' "$(uname -r)"
 printf 'Root shell on ttyAMA0; rootfs is recreated from the initramfs at each boot.\n'

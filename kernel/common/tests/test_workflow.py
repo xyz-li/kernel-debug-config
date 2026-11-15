@@ -18,6 +18,33 @@ import qemu
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_resolved_config_requires_the_qemu_network_transport_built_in(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config = Path(temporary) / 'kernel.config'
+            required = '\n'.join(f'CONFIG_{symbol}=y' for symbol in manifest.REQUIRED_CONFIG) + '\n'
+            config.write_text(required)
+            manifest.validate_config(config)
+            for value in ('# CONFIG_VIRTIO_MMIO is not set', 'CONFIG_VIRTIO_MMIO=m'):
+                config.write_text(required.replace('CONFIG_VIRTIO_MMIO=y', value))
+                with self.assertRaisesRegex(ValueError, 'CONFIG_VIRTIO_MMIO=y'):
+                    manifest.validate_config(config)
+
+    def test_start_rejects_an_old_build_without_the_network_transport(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            (output / 'Image').write_bytes(b'kernel')
+            (output / 'vmlinux').write_bytes(b'symbols')
+            (output / 'kernel.config').write_text('\n'.join(
+                f'CONFIG_{symbol}=y' for symbol in manifest.REQUIRED_CONFIG if symbol != 'VIRTIO_MMIO'))
+            record = {key: manifest.file_hash(output / name) for name, key in
+                      [('Image', 'image'), ('vmlinux', 'vmlinux'), ('kernel.config', 'config')]}
+            manifest.write_json(output / 'kernel.json', record)
+            with (patch.object(qemu, 'OUTPUT', output), patch.object(qemu, 'state', return_value=None),
+                  patch.object(qemu, 'clear'), patch('qemu.subprocess.Popen') as start):
+                with self.assertRaisesRegex(ValueError, 'CONFIG_VIRTIO_MMIO=y'):
+                    qemu.start(paused=True)
+                start.assert_not_called()
+
     def test_config_comments_are_removed_and_required_fragment_wins(self):
         with tempfile.TemporaryDirectory() as temporary:
             first, second = [Path(temporary) / name for name in ('user', 'required')]
@@ -73,8 +100,25 @@ class WorkflowTests(unittest.TestCase):
                 environment.build()
             up.assert_not_called()
 
-    def test_both_workspaces_build_start_and_cleanup_automatically(self):
-        for kind in ('single-container', 'multi-container'):
+    def test_shell_preserves_a_running_container_and_its_debug_vm(self):
+        environment = object.__new__(dev.Environment)
+        environment.service = 'kernel-dev'
+        with (patch.object(environment, 'call', return_value=subprocess.CompletedProcess([], 0, stdout='container\n')) as call,
+              patch.object(environment, 'up') as up):
+            environment.prepare_shell()
+            call.assert_called_once_with(['ps', '-q', '--status', 'running', 'kernel-dev'], True)
+            up.assert_not_called()
+
+    def test_shell_starts_a_container_when_none_is_running(self):
+        environment = object.__new__(dev.Environment)
+        environment.service = 'kernel-builder'
+        with (patch.object(environment, 'call', return_value=subprocess.CompletedProcess([], 0, stdout='')),
+              patch.object(environment, 'up') as up):
+            environment.prepare_shell()
+            up.assert_called_once_with()
+
+    def test_all_workspaces_build_start_and_cleanup_automatically(self):
+        for kind in ('single-container', 'multi-container', 'apple-container', 'debian-container'):
             directory = ROOT.parent / kind / '.vscode'
             launch = json.loads((directory / 'launch.json').read_text())['configurations']
             tasks = {task['label']: task for task in json.loads((directory / 'tasks.json').read_text())['tasks']}
@@ -86,7 +130,11 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(automatic['customLaunchSetupCommands'][0]['text'], '-file-exec-and-symbols /output/vmlinux')
             self.assertEqual(automatic['customLaunchSetupCommands'][1]['text'], '-target-select remote /cache/run/gdb.sock')
             self.assertEqual(automatic['customLaunchSetupCommands'][-1]['text'], '-break-insert -h -f start_kernel')
-            self.assertEqual(automatic['sourceFileMap']['/cache/source'], '${workspaceFolder:kernel-source}')
+            for configuration in launch:
+                self.assertEqual(configuration['unknownBreakpointHandling'], 'stop')
+                mapping = configuration['sourceFileMap']
+                self.assertEqual(mapping['/cache/source'], dict(editorPath='${workspaceFolder:kernel-source}', useForBreakpoints=True))
+                self.assertFalse(mapping['/kernel']['useForBreakpoints'])
 
     def test_fast_debug_rejects_artifacts_from_a_different_source_binding(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,0 +1,7 @@
+{
+  "folders": [
+    {"name": "kernel-config", "path": "."},
+    {"name": "kernel-source", "path": "../../linux-source"}
+  ],
+  "settings": {"debug.allowBreakpointsEverywhere": true}
+}

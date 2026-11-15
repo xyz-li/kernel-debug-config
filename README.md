@@ -4,15 +4,18 @@
 
 ```text
 kernel-debug-config/
-├── runtimes/                   # Firecracker / Cloud Hypervisor / gVisor / Kata
+├── runtimes/                   # Firecracker / Cloud Hypervisor / QEMU / gVisor / Kata
 │   ├── fc/                     # Firecracker 调试配置
 │   ├── ch/                     # Cloud Hypervisor 调试配置
+│   ├── qemu/                   # QEMU C 源码调试、独立 Debian 持久化 Guest
 │   ├── gv/                     # gVisor 调试配置
 │   ├── kata/
 │   └── common/                 # Host、Guest 交互、绑定与调试通道
 ├── kernel/                     # Linux 内核构建和 QEMU/GDB 调试
 │   ├── single-container/
 │   ├── multi-container/
+│   ├── apple-container/        # Apple container 原生构建与调试
+│   ├── debian-container/       # 轻量 Debian、整盘持久化、网络与内核调试
 │   ├── common/                 # 构建、rootfs、QEMU、源码绑定
 │   └── vscode/                 # 手工 VSCode 配置模板
 ├── network/                    # Cilium BGP/ECMP、DPDK、Katran 实验
@@ -23,7 +26,8 @@ kernel-debug-config/
 | 入口 | 内容 |
 | --- | --- |
 | [运行时调试](runtimes/README.md) | macOS → Ubuntu KVM Host 或 Linux 原生；VMM、Agent、runsc 源码断点 |
-| [Linux 内核调试](kernel/README.md) | Docker 中编译匹配的内核、模块和 rootfs，F5 自动启动 QEMU 并停在 `start_kernel` |
+| [Linux 内核调试](kernel/README.md) | Apple container / Docker 中编译匹配的内核、模块和 rootfs，F5 自动启动 QEMU 并停在 `start_kernel` |
+| [轻量 Debian Guest](kernel/debian-container/README.md) | 1 CPU / 256 MiB，Debian APT、自动网络、ext4 持久化根盘 |
 | [网络实验](network/README.md) | 各实验的拓扑、部署脚本和配置 |
 | [公共 Ubuntu Host](runtimes/common/host/README.md) | 四种运行时共用的 Host 镜像与创建入口 |
 
@@ -32,10 +36,13 @@ kernel-debug-config/
 ```bash
 ./runtimes/fc/dev.sh bind /path/to/firecracker
 ./runtimes/ch/dev.sh bind /path/to/cloud-hypervisor
+./runtimes/qemu/dev.sh bind /path/to/qemu
 ./runtimes/gv/dev.sh bind /path/to/gvisor
 ./runtimes/kata/dev.sh bind /path/to/kata-containers
 ./kernel/single-container/dev.sh bind /path/to/linux
 ./kernel/multi-container/dev.sh bind /path/to/linux
+./kernel/apple-container/dev.sh bind /path/to/linux
+./kernel/debian-container/dev.sh bind /path/to/linux
 ```
 
 在 VSCode 选择 **文件 → 从文件打开工作区**，打开对应目录的 `output/debug.local.code-workspace`。工作区同时显示配置与上游源码；选择 Launch 配置并按 F5，按该环境的流程自动构建和调试。首次 Host、工具链和 Guest 资产准备见各区域指南。

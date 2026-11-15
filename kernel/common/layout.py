@@ -3,9 +3,12 @@ from pathlib import Path
 
 KERNEL_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = KERNEL_ROOT.parent
-SERVICES = {'single-container': 'kernel-dev', 'multi-container': 'kernel-builder'}
+SERVICES = {'single-container': 'kernel-dev', 'multi-container': 'kernel-builder',
+            'apple-container': 'kernel-builder', 'debian-container': 'kernel-builder'}
 WORKSPACES = {'single-container': 'one-container.code-workspace',
-              'multi-container': 'multi-containers.code-workspace'}
+              'multi-container': 'multi-containers.code-workspace',
+              'apple-container': 'apple-container.code-workspace',
+              'debian-container': 'debian-container.code-workspace'}
 ALIASES = {'one_container': 'single-container', 'multi_containers': 'multi-container'}
 
 
