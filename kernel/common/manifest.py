@@ -35,6 +35,26 @@ def validate_disk_config(path):
         raise ValueError('Persistent guest needs built-in storage, file locking, control and clock support: ' + ', '.join(missing))
 
 
+def validate_network_config(path):
+    text = Path(path).read_text()
+    required = ('NF_TABLES', 'NF_TABLES_INET', 'NF_CONNTRACK', 'NF_NAT', 'NFT_CT', 'NFT_NAT',
+                'NFT_MASQ', 'NFT_COMPAT', 'IP_NF_IPTABLES', 'IP_NF_FILTER', 'IP_NF_NAT',
+                'IP6_NF_IPTABLES', 'IP6_NF_FILTER')
+    missing = [name for name in required if not re.search(r'^CONFIG_' + name + r'=[ym]$', text, re.M)]
+    if missing:
+        raise ValueError('Required iptables/nftables support missing after Kconfig: ' + ', '.join(missing))
+
+
+def validate_requested_config(resolved, requested):
+    actual = dict(re.findall(r'^(CONFIG_\w+)=(.*)$', Path(resolved).read_text(), re.M))
+    desired = dict(re.findall(r'^(CONFIG_\w+)=(.*)$', Path(requested).read_text(), re.M))
+    # A missing/renamed tristate must never silently produce an unusable module profile.
+    missing = [name + '=' + value for name, value in desired.items()
+               if value == 'm' and actual.get(name) != 'm']
+    if missing:
+        raise ValueError('Requested modules were dropped or forced built-in; check Kconfig dependencies: ' + ', '.join(missing))
+
+
 def disk_uuid(path):
     with open(path, 'rb') as stream:
         stream.seek(1024)
@@ -139,3 +159,7 @@ if __name__ == '__main__':
             validate_config(sys.argv[2])
         except ValueError as error:
             raise SystemExit(str(error))
+    elif sys.argv[1] == 'check-network-config':
+        validate_network_config(sys.argv[2])
+    elif sys.argv[1] == 'check-requested-config':
+        validate_requested_config(sys.argv[2], sys.argv[3])

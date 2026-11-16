@@ -30,6 +30,8 @@ tar -C / -cf "$stage/base.tar" "$@"
 tar -C "$stage/root" -xf "$stage/base.tar"
 rm "$stage/base.tar"
 root="$stage/root"
+# Python only computes the packaging manifest; it is not a Guest dependency.
+rm -rf "$root/usr/lib/python"* "$root/usr/bin/python"* "$root/var/cache/apk" "$root/root/.cache"
 rm -rf "$root/lib/modules"
 mkdir -p "$root/dev" "$root/proc" "$root/sys" "$root/run" "$root/tmp" \
     "$root/etc/kernel-debug" "$root/root" "$root/lib/modules"
@@ -50,6 +52,7 @@ ttyAMA0::respawn:/bin/sh -l
 EOF
 printf 'kernel-debug\n' > "$root/etc/hostname"
 printf 'nameserver 10.0.2.3\n' > "$root/etc/resolv.conf"
+printf '/sbin/modprobe\n' > "$root/etc/kernel-debug/modprobe.path"
 mknod -m 600 "$root/dev/console" c 5 1
 mknod -m 666 "$root/dev/null" c 1 3
 # Overlay is applied last, so users can customize /init, tools, configs or tests.

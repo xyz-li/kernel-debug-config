@@ -6,11 +6,12 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 mkdir -p /dev/pts /dev/shm /run /tmp /sys/kernel/debug /sys/kernel/tracing
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /run
-mount -t tmpfs tmpfs /tmp
-mount -t tmpfs tmpfs /dev/shm
+mount -t tmpfs -o mode=1777,size=32m tmpfs /tmp
+mount -t tmpfs -o mode=1777,size=16m tmpfs /dev/shm
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
 mount -t tracefs tracefs /sys/kernel/tracing 2>/dev/null || true
 hostname kernel-debug
+echo /sbin/modprobe > /proc/sys/kernel/modprobe
 sysctl -w net.ipv4.ping_group_range='0 2147483647' >/dev/null 2>&1 || true
 if ! /etc/kernel-debug/network; then
     echo 'Network configuration failed; root shell remains available. See /run/kernel-debug/network.status.' >&2

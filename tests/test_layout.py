@@ -33,8 +33,10 @@ class LayoutTests(unittest.TestCase):
             moved, updated = migration.migrate(repo)
             self.assertEqual(moved, 3)
             self.assertGreater(updated, 0)
-            config = json.loads((repo / 'kernel/single-container/output/config.local.json').read_text())
-            self.assertEqual(config['source'], str(repo / 'kernel/single-container/output/kernel-source/linux'))
+            config = json.loads((repo / 'kernel/output/legacy/one_container/output/config.local.json').read_text())
+            self.assertEqual(config['source'], str(repo / 'kernel/output/legacy/one_container/output/kernel-source/linux'))
+            self.assertFalse((repo / 'kernel/single-container').exists())
+            self.assertFalse((repo / 'kernel/multi-container').exists())
             self.assertEqual(config['jobs'], 3)
             suffix = hashlib.sha256(str(repo / 'one_container').encode()).hexdigest()[:8]
             self.assertEqual(config['project'], 'kernel-debug-one-container-' + suffix)
@@ -125,8 +127,7 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual(folders[template + '-source'], ROOT.parent / source)
 
     def test_kernel_defaults_and_legacy_kind_aliases_resolve_to_new_layout(self):
-        for kind, template in [('single-container', 'one-container'), ('multi-container', 'multi-containers'),
-                               ('apple-container', 'apple-container'), ('debian-container', 'debian-container')]:
+        for kind, template in [('apple-container', 'apple-container'), ('debian-container', 'debian-container')]:
             directory = ROOT / 'kernel' / kind
             workspace = json.loads((directory / f'{template}.code-workspace').read_text())
             self.assertEqual((directory / workspace['folders'][1]['path']).resolve(), ROOT / 'linux-source')

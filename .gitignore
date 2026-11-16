@@ -13,6 +13,7 @@ runtimes/*/bin/*
 
 # Kernel sources, filesystem images and generated workspaces.
 kernel/*/output/
+kernel/output/
 
 # Keep old local state private until tools/migrate_layout.py has moved it.
 environments/*/.env

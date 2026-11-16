@@ -1,0 +1,8 @@
+ARG BASE_IMAGE=alpine:3.22
+FROM ${BASE_IMAGE}
+# Runtime tools only. Python is removed from the packed rootfs after packaging.
+RUN apk add --no-cache busybox iproute2 iputils curl ca-certificates \
+    iptables iptables-legacy ip6tables nftables kmod strace tcpdump procps \
+    util-linux cpio gzip findutils python3
+WORKDIR /work
+CMD ["/bin/sh"]

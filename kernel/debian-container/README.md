@@ -1,6 +1,8 @@
 # 轻量 Debian 持久化 Guest
 
-基于 Debian 13 `trixie-slim` ARM64，沿用 Apple `container` 中的 QEMU/GDB 内核调试流程。Guest 使用 BusyBox init 和串口 root shell；保留 Debian 的 glibc、APT、curl、ping、iproute2、tcpdump、strace，不启动 systemd 或 SSH 服务。
+本目录是统一入口 `KERNEL_ROOTFS=debian ./kernel/dev.sh` 的固定配置。内核版本、共用工具链、精简内核、模块和功能片段见 [公共指南](../README.md)。
+
+基于 Debian 13 `trixie-slim` ARM64，沿用 Apple `container` 中的 QEMU/GDB 内核调试流程。Guest 使用 BusyBox init 和串口 root shell；保留 Debian 的 glibc、APT、curl、ping、iproute2、tcpdump、strace，不启动 systemd 或 SSH 服务。新根盘包含 iptables 和 nftables；已有根盘可以用 APT 补齐，构建过程保留用户文件。
 
 默认分配 **1 CPU、256 MiB Guest 内存**，空闲启动实测约使用 29 MiB。外层构建容器为 2 CPU、1 GiB 内存上限，包含 QEMU 和构建工具的开销。使用 TCG，不依赖嵌套虚拟化。闲置时执行 `down` 释放外层容器的内存，下次启动保留磁盘与编译缓存。
 

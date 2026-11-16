@@ -28,7 +28,7 @@ python3 /scripts/kernel/debug_profile.py apply /cache/source "$@"
 base=${KERNEL_BASE_CONFIG:-defconfig}
 [[ "$base" =~ ^[a-zA-Z0-9_]+config$ ]] || { echo 'Invalid KERNEL_BASE_CONFIG.' >&2; exit 2; }
 fragment=/cache/fragment.config
-python3 /scripts/kernel/manifest.py normalize-config "${KERNEL_FRAGMENT:-/scripts/minimal_debug.config}" /scripts/kernel/debug.config "$fragment"
+python3 /scripts/kernel/manifest.py normalize-config /output/kernel.fragment.config "$fragment"
 stamp=$( { sha256sum "$fragment" /scripts/kernel/build-kernel.sh /kernel/Makefile; printf '%s\n' "$base" "${CROSS_COMPILE:-}"; } | sha256sum | cut -d' ' -f1)
 make_args=(-C /cache/source O=/cache/build ARCH=arm64 KBUILD_ABS_SRCTREE=1)
 if [[ $(uname -m) != aarch64 && -z ${CROSS_COMPILE:-} ]]; then CROSS_COMPILE=aarch64-linux-gnu-; fi
@@ -40,13 +40,17 @@ if [[ ! -f /cache/build/.config || ! -f /cache/config.sha256 || $(cat /cache/con
 fi
 make "${make_args[@]}" olddefconfig
 python3 /scripts/kernel/manifest.py check-config /cache/build/.config
+python3 /scripts/kernel/manifest.py check-network-config /cache/build/.config
+python3 /scripts/kernel/manifest.py check-requested-config /cache/build/.config "$fragment"
 make "${make_args[@]}" -j"${JOBS:-2}" Image modules
 python3 /scripts/kernel/debug_profile.py record /cache/build /output "$@"
 make "${make_args[@]}" scripts_gdb
 release=$(make -s "${make_args[@]}" kernelrelease)
 # Only this kernel's modules are exported; old releases never enter its initramfs.
 rm -rf "/cache/modules/lib/modules/$release"
-make "${make_args[@]}" INSTALL_MOD_PATH=/cache/modules modules_install
+install_args=(INSTALL_MOD_PATH=/cache/modules)
+if [[ ${KERNEL_STRIP_MODULES:-1} == 1 ]]; then install_args+=(INSTALL_MOD_STRIP=1); fi
+make "${make_args[@]}" "${install_args[@]}" modules_install
 mkdir -p "/output/modules/$release" /output/generated
 rsync -a --checksum --delete "/cache/modules/lib/modules/$release/" "/output/modules/$release/"
 for artifact in vmlinux System.map .config; do

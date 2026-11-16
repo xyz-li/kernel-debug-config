@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 
@@ -19,7 +20,14 @@ class AppleEnvironment(Environment):
         self.builder = self.project + '-builder'
         self.owner = str(self.directory)
         self.builder_cpus = os.environ.get('BUILDER_CPUS', str(self.local.get('builder_cpus', 2)))
-        self.builder_memory = os.environ.get('BUILDER_MEMORY', str(self.local.get('builder_memory', '4G')))
+        self.builder_memory = os.environ.get('BUILDER_MEMORY', str(self.local.get('builder_memory', '1G')))
+        images = Path(__file__).resolve().parent / 'images'
+        toolchain = hashlib.sha256((file_hash(images / 'Dockerfile.builder') + file_hash(images / 'ubuntu.sources')).encode()).hexdigest()[:12]
+        flavor = 'debian' if kind == 'debian-container' else 'alpine'
+        base = os.environ.get('BASE_IMAGE', 'debian:trixie-slim' if flavor == 'debian' else 'alpine:3.22')
+        rootfs = hashlib.sha256((file_hash(images / ('Dockerfile.' + flavor)) + base).encode()).hexdigest()[:12]
+        self.environment.update(KERNEL_BUILDER_IMAGE='kernel-debug-toolchain-' + toolchain + ':local',
+                                ROOTFS_BUILDER_IMAGE='kernel-debug-rootfs-' + flavor + '-' + rootfs + ':local')
         if 'KERNEL_BASE_CONFIG' not in os.environ and 'kernel_base_config' not in self.local:
             self.environment['KERNEL_BASE_CONFIG'] = 'tinyconfig'
 
@@ -67,23 +75,25 @@ class AppleEnvironment(Environment):
 
     def images(self, force=False):
         self.validate_source()
+        context = self.directory.parent / 'common/images'
         previous_path = self.output / 'images.local.json'
         previous = json.loads(previous_path.read_text()) if previous_path.exists() else {}
         available = {entry['configuration']['name'].removeprefix('docker.io/library/')
                      for entry in json.loads(self.cli(['image', 'list', '--format', 'json'], True).stdout)}
         fingerprints = {}
-        for service, dockerfile, key in [(self.service, 'Dockerfile', 'KERNEL_BUILDER_IMAGE'),
-                                         ('initramfs-builder', 'Dockerfile.initramfs', 'ROOTFS_BUILDER_IMAGE')]:
+        flavor = 'debian' if self.kind == 'debian-container' else 'alpine'
+        for service, dockerfile, key in [(self.service, 'Dockerfile.builder', 'KERNEL_BUILDER_IMAGE'),
+                                         ('initramfs-builder', 'Dockerfile.' + flavor, 'ROOTFS_BUILDER_IMAGE')]:
             image = self.environment[key]
-            digest = hashlib.sha256((file_hash(self.directory / dockerfile) +
-                                     file_hash(self.directory / 'ubuntu.sources') +
+            digest = hashlib.sha256((file_hash(context / dockerfile) +
+                                     file_hash(context / 'ubuntu.sources') +
                                      self.environment.get('BASE_IMAGE', 'alpine:3.22')).encode()).hexdigest()
             if force or image not in available or previous.get(service) != digest:
                 command = ['build', '--platform', 'linux/arm64', '--progress', 'plain', '--tag', image,
-                           '--file', str(self.directory / dockerfile)]
+                           '--file', str(context / dockerfile)]
                 if service == 'initramfs-builder':
                     command += ['--build-arg', 'BASE_IMAGE=' + self.environment.get('BASE_IMAGE', 'alpine:3.22')]
-                self.cli([*command, str(self.directory)])
+                self.cli([*command, str(context)])
             fingerprints[service] = digest
         write_json(previous_path, fingerprints)
 
@@ -111,8 +121,7 @@ class AppleEnvironment(Environment):
         image = self.environment['KERNEL_BUILDER_IMAGE']
         values = {key: self.environment[key] for key in
                   ('JOBS', 'CPUS', 'MEMORY', 'KERNEL_BASE_CONFIG', 'KERNEL_SESSION_NAME')}
-        values.update(ARCH='arm64', CROSS_COMPILE=self.environment.get('CROSS_COMPILE', ''), OUTPUT_DIR='/output',
-                      KERNEL_FRAGMENT='/scripts/environment/minimal_debug.config')
+        values.update(ARCH='arm64', CROSS_COMPILE=self.environment.get('CROSS_COMPILE', ''), OUTPUT_DIR='/output')
         spec = dict(image=self.image_id(image), source=str(self.source),
                     cpus=self.builder_cpus, memory=self.builder_memory, environment=values)
         fingerprint = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()

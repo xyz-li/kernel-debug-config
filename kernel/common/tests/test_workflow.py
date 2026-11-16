@@ -93,7 +93,7 @@ class WorkflowTests(unittest.TestCase):
     def test_running_vm_is_checked_before_image_rebuild_or_container_recreation(self):
         environment = object.__new__(dev.Environment)
         environment.service = 'kernel-dev'
-        with (patch.object(environment, 'call', return_value=subprocess.CompletedProcess([], 0, stdout='container\n')),
+        with (patch.object(environment, 'running', return_value=True),
               patch.object(environment, 'qemu', return_value=subprocess.CompletedProcess([], 0, stdout='{"running":true}')),
               patch.object(environment, 'up') as up):
             with self.assertRaisesRegex(ValueError, 'Stop the current debug session'):
@@ -103,22 +103,22 @@ class WorkflowTests(unittest.TestCase):
     def test_shell_preserves_a_running_container_and_its_debug_vm(self):
         environment = object.__new__(dev.Environment)
         environment.service = 'kernel-dev'
-        with (patch.object(environment, 'call', return_value=subprocess.CompletedProcess([], 0, stdout='container\n')) as call,
+        with (patch.object(environment, 'running', return_value=True) as running,
               patch.object(environment, 'up') as up):
             environment.prepare_shell()
-            call.assert_called_once_with(['ps', '-q', '--status', 'running', 'kernel-dev'], True)
+            running.assert_called_once_with()
             up.assert_not_called()
 
     def test_shell_starts_a_container_when_none_is_running(self):
         environment = object.__new__(dev.Environment)
         environment.service = 'kernel-builder'
-        with (patch.object(environment, 'call', return_value=subprocess.CompletedProcess([], 0, stdout='')),
+        with (patch.object(environment, 'running', return_value=False),
               patch.object(environment, 'up') as up):
             environment.prepare_shell()
             up.assert_called_once_with()
 
     def test_all_workspaces_build_start_and_cleanup_automatically(self):
-        for kind in ('single-container', 'multi-container', 'apple-container', 'debian-container'):
+        for kind in ('apple-container', 'debian-container'):
             directory = ROOT.parent / kind / '.vscode'
             launch = json.loads((directory / 'launch.json').read_text())['configurations']
             tasks = {task['label']: task for task in json.loads((directory / 'tasks.json').read_text())['tasks']}
@@ -165,16 +165,17 @@ class WorkflowTests(unittest.TestCase):
             (root / 'common').mkdir()
             shutil.copy2(ROOT / 'workspace.py', root / 'common/workspace.py')
             shutil.copy2(ROOT / 'layout.py', root / 'common/layout.py')
-            environment = root / 'single-container'
+            shutil.copy2(ROOT / 'sources.py', root / 'common/sources.py')
+            environment = root / 'apple-container'
             environment.mkdir()
-            shutil.copy2(ROOT.parent / 'single-container/one-container.code-workspace', environment / 'one-container.code-workspace')
+            shutil.copy2(ROOT.parent / 'apple-container/apple-container.code-workspace', environment / 'apple-container.code-workspace')
             (environment / 'output').mkdir()
             manifest.write_json(environment / 'output/config.local.json', dict(jobs=3))
             source = root / "source with ' quote"
             (source / 'init').mkdir(parents=True)
             (source / 'Makefile').write_text('VERSION = 6\n')
             (source / 'init/main.c').touch()
-            subprocess.run([sys.executable, str(root / 'common/workspace.py'), 'single-container', str(source)],
+            subprocess.run([sys.executable, str(root / 'common/workspace.py'), 'apple-container', str(source)],
                            check=True, capture_output=True)
             config = json.loads((environment / 'output/config.local.json').read_text())
             workspace = json.loads((environment / 'output/debug.local.code-workspace').read_text())

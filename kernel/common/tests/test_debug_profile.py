@@ -54,6 +54,8 @@ class DebugProfileTests(unittest.TestCase):
             environment = object.__new__(dev.Environment)
             environment.output = Path(temporary)
             environment.source = Path('/linux')
+            environment.kind = 'apple-container'
+            environment.environment = {'KERNEL_BASE_CONFIG': 'tinyconfig'}
             environment.local = {'debug_sources': ['net/ipv4/ping.c']}
             write_json(environment.output / 'source.local.json', {'source': '/linux'})
             with (patch.dict(os.environ, {}, clear=True), patch.object(environment, 'refuse_running'),
@@ -62,4 +64,5 @@ class DebugProfileTests(unittest.TestCase):
                     environment.debug(rebuild=False)
                 up.assert_not_called()
                 self.assertTrue(environment.matching_build(dict(source='/linux',
-                    debug_sources=['net/ipv4/ping.c'], debug_flags=debug_profile.FLAGS)))
+                    debug_sources=['net/ipv4/ping.c'], debug_flags=debug_profile.FLAGS,
+                    config_hash=dev.configuration.identity(environment))))

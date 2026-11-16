@@ -1,5 +1,1 @@
-{
-  "recommendations": [
-    "ms-vscode.cpptools"
-  ]
-}
+../../common/vscode/extensions.json

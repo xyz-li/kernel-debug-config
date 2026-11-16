@@ -12,10 +12,11 @@ import sys
 import termios
 import tty
 
-from manifest import file_hash, write_json
-from mi_pipe import pipe_command
+from manifest import write_json
 from layout import ALIASES, KERNEL_ROOT, REPO_ROOT, SERVICES, canonical
 from debug_profile import FLAGS as LOCAL_DEBUG_FLAGS, sources as debug_source_paths
+import configuration
+import sources
 
 REPO = REPO_ROOT
 
@@ -27,39 +28,27 @@ class Environment:
         self.output = self.directory / 'output'
         self.output.mkdir(exist_ok=True)
         self.local = json.loads((self.output / 'config.local.json').read_text()) if (self.output / 'config.local.json').exists() else {}
-        self.source = Path(os.environ.get('KERNEL_SOURCE', self.local.get('source', str(REPO / 'linux-source')))).expanduser().resolve()
+        self.source, self.requested_version, self.local = sources.select(KERNEL_ROOT, self.local)
         suffix = hashlib.sha256(str(self.directory).encode()).hexdigest()[:8]
         self.project = self.local.get('project', f'kernel-debug-{kind}-{suffix}')
         self.environment = dict(os.environ, KERNEL_SOURCE=str(self.source),
             KERNEL_BUILDER_IMAGE=f'{self.project}-builder:local', ROOTFS_BUILDER_IMAGE=f'{self.project}-rootfs:local',
             KERNEL_SESSION_NAME=self.project)
-        for key, default in [('JOBS', '2'), ('CPUS', '2'), ('MEMORY', '2G'), ('KERNEL_BASE_CONFIG', 'defconfig')]:
+        for key, default in [('JOBS', '2'), ('CPUS', '1'), ('MEMORY', '256M'), ('KERNEL_BASE_CONFIG', 'tinyconfig')]:
             self.environment[key] = os.environ.get(key, str(self.local.get(key.lower(), default)))
         self.overlay = Path(os.environ.get('ROOTFS_OVERLAY', str(self.directory / 'rootfs-overlay'))).expanduser().resolve()
         self.overlay.mkdir(parents=True, exist_ok=True)
         self.environment['ROOTFS_OVERLAY'] = str(self.overlay)
         self.service = SERVICES[kind]
-        self.compose = ['docker', 'compose', '-p', self.project, '-f', str(self.directory / 'docker-compose.yml')]
-
-    def call(self, arguments, capture=False):
-        return subprocess.run(self.compose + arguments, env=self.environment, check=True,
-                              text=capture, stdout=subprocess.PIPE if capture else None)
-
-    def exec(self, arguments, capture=False, interactive=False):
-        return self.call(['exec', '-T', self.service, *arguments], capture)
-
-    def exec_interactive(self, arguments):
-        return self.call(['exec', self.service, *arguments])
-
-    def pipe(self, arguments):
-        arguments, interactive = pipe_command(arguments)
-        if not interactive:
-            with open(os.devnull, 'rb') as null:
-                os.dup2(null.fileno(), 0)
-        os.execvpe('docker', self.compose + ['exec', '-T', self.service, *arguments], self.environment)
 
     def running(self):
-        return bool(self.call(['ps', '-q', '--status', 'running', self.service], True).stdout.strip())
+        raise NotImplementedError('A container backend is required')
+
+    def up(self):
+        raise NotImplementedError('A container backend is required')
+
+    def exec(self, arguments, capture=False, interactive=False):
+        raise NotImplementedError('A container backend is required')
 
     def validate_source(self):
         image = self.local.get('source_image')
@@ -76,36 +65,18 @@ class Environment:
                     fcntl.flock(mount_lock, fcntl.LOCK_EX)
                     if not (self.source / 'Makefile').exists() and not os.path.ismount(mount):
                         subprocess.run(['hdiutil', 'attach', str(Path(image).expanduser()), '-mountpoint', str(mount), '-nobrowse'], check=True)
+        requested = getattr(self, 'requested_version', None)
+        if requested and not (self.source / 'Makefile').is_file():
+            sources.prepare(self.source, requested, KERNEL_ROOT)
         if not (self.source / 'Makefile').is_file() or not (self.source / 'init/main.c').is_file():
             raise ValueError(f'Bind Linux sources first: ./kernel/{self.kind}/dev.sh bind /path/to/linux (current: {self.source})')
+        sources.check(self.source, requested)
         upper = self.source / 'include/uapi/linux/netfilter/xt_MARK.h'
         lower = self.source / 'include/uapi/linux/netfilter/xt_mark.h'
         if upper.exists() and lower.exists() and upper.samefile(lower):
             raise ValueError('Linux source has case-collapsed headers; use a case-sensitive source filesystem.')
         if not self.environment['JOBS'].isdigit() or int(self.environment['JOBS']) < 1:
             raise ValueError('JOBS must be a positive integer')
-
-    def images(self, force=False):
-        self.validate_source()
-        previous = json.loads((self.output / 'images.local.json').read_text()) if (self.output / 'images.local.json').exists() else {}
-        fingerprints = {}
-        changed = []
-        for service, dockerfile, variable in [(self.service, 'Dockerfile', 'KERNEL_BUILDER_IMAGE'),
-                                             ('initramfs-builder', 'Dockerfile.initramfs', 'ROOTFS_BUILDER_IMAGE')]:
-            digest = hashlib.sha256((file_hash(self.directory / dockerfile) +
-                                     file_hash(self.directory / 'ubuntu.sources') + self.environment.get('BASE_IMAGE', 'alpine:3.22')).encode()).hexdigest()
-            fingerprints[service] = digest
-            exists = subprocess.run(['docker', 'image', 'inspect', self.environment[variable]],
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
-            if force or not exists or previous.get(service) != digest:
-                changed.append(service)
-        if changed:
-            self.call(['build', *changed])
-        write_json(self.output / 'images.local.json', fingerprints)
-
-    def up(self):
-        self.images()
-        self.call(['up', '-d', self.service])
 
     def qemu(self, command, capture=False):
         return self.exec(['python3', '/scripts/kernel/qemu.py', command], capture)
@@ -127,10 +98,14 @@ class Environment:
         self.refuse_running()
         self.up()
         self.stopped()
+        config_hash = configuration.write(self)
         selected = self.debug_sources()
-        self.exec(['/bin/bash', '/scripts/kernel/build-kernel.sh', *selected])
+        strip = os.environ.get('KERNEL_STRIP_MODULES', str(self.local.get('strip_modules', 1)))
+        self.exec(['env', 'KERNEL_STRIP_MODULES=' + strip, '/bin/bash', '/scripts/kernel/build-kernel.sh', *selected])
         write_json(self.output / 'source.local.json', dict(source=str(self.source), debug_sources=selected,
-                                                         debug_flags=LOCAL_DEBUG_FLAGS if selected else []))
+                   debug_flags=LOCAL_DEBUG_FLAGS if selected else [], config_hash=config_hash,
+                   kernel_version=sources.tree_version(self.source)))
+        subprocess.run([sys.executable, str(Path(__file__).with_name('workspace.py')), self.kind, str(self.source)], check=True)
         database = self.output / 'compile_commands.linux.json'
         if database.exists():
             def mapped(value):
@@ -154,7 +129,8 @@ class Environment:
         selected = self.debug_sources()
         return (record.get('source') == str(self.source) and
                 record.get('debug_sources', []) == selected and
-                record.get('debug_flags', []) == (LOCAL_DEBUG_FLAGS if selected else []))
+                record.get('debug_flags', []) == (LOCAL_DEBUG_FLAGS if selected else []) and
+                record.get('config_hash') == configuration.identity(self))
 
     def rootfs(self, force=False):
         self.refuse_running()
@@ -184,7 +160,7 @@ class Environment:
             self.refuse_running()
             record = self.output / 'source.local.json'
             if not record.exists() or not self.matching_build(json.loads(record.read_text())):
-                raise ValueError('Existing artifacts do not match this source binding or local-variable profile; '
+                raise ValueError('Existing artifacts do not match this source binding, kernel configuration or local-variable profile; '
                                  'run dev.sh build or select "Kernel: Build and debug (automatic)" first.')
             self.up()
             self.stopped()
@@ -194,10 +170,6 @@ class Environment:
         # Does not start a stopped container just to stop a VM.
         if self.running():
             self.qemu('stop')
-
-    def down(self):
-        self.stop()
-        self.call(['stop', self.service])
 
     def prepare_shell(self):
         # Reuse a running container: compose up may recreate it after an image
@@ -223,7 +195,7 @@ def make_environment(kind):
     if canonical(kind) == 'apple-container':
         from apple import AppleEnvironment
         return AppleEnvironment('apple-container')
-    return Environment(kind)
+    raise ValueError("Unsupported kernel environment: " + kind)
 
 
 def main(environment_type=None):
@@ -234,10 +206,12 @@ def main(environment_type=None):
         return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('environment', choices=(*SERVICES, *ALIASES))
-    parser.add_argument('command', choices=('bind', 'setup', 'up', 'build', 'rootfs', 'debug', 'start', 'boot', 'run', 'stop', 'down', 'status', 'console', 'logs', 'gdb', 'shell'))
+    parser.add_argument('command', choices=('bind', 'source', 'setup', 'up', 'build', 'rootfs', 'debug', 'start', 'boot', 'run', 'stop', 'down', 'status', 'console', 'logs', 'gdb', 'shell'))
     parser.add_argument('source', nargs='?', help='Source directory for bind')
     parser.add_argument('--force', action='store_true', help='Rebuild container images or rootfs')
     args = parser.parse_args()
+    if args.command == 'source' and args.source:
+        os.environ['KERNEL_VERSION'] = sources.version(args.source)
     environment = environment_type(args.environment)
     with open(environment.output / 'workflow.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -246,6 +220,11 @@ def main(environment_type=None):
             if not args.source:
                 parser.error('bind needs /path/to/linux')
             subprocess.run([sys.executable, str(Path(__file__).with_name('workspace.py')), environment.kind, args.source], check=True)
+        elif command == 'source':
+            environment.refuse_running()
+            environment.validate_source()
+            subprocess.run([sys.executable, str(Path(__file__).with_name('workspace.py')), environment.kind, str(environment.source)], check=True)
+            print('Kernel source ready: ' + str(environment.source))
         elif command == 'setup':
             environment.refuse_running()
             environment.images(args.force)

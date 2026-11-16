@@ -16,8 +16,9 @@ RELOCATIONS = {
     'runtimes/gvisor': 'runtimes/gv',
     'environments/kata': 'runtimes/kata',
     'environments/common': 'runtimes/common',
-    'one_container': 'kernel/single-container',
-    'multi_containers': 'kernel/multi-container',
+    # Retired Docker state is archived, never recreated as an active environment.
+    'one_container': 'kernel/output/legacy/one_container',
+    'multi_containers': 'kernel/output/legacy/multi_containers',
     'kernel_common': 'kernel/common',
     'vscode/kernel_workspace.py': 'kernel/common/workspace.py',
     'vscode': 'kernel/vscode',

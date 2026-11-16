@@ -12,8 +12,7 @@ kernel-debug-config/
 │   ├── kata/
 │   └── common/                 # Host、Guest 交互、绑定与调试通道
 ├── kernel/                     # Linux 内核构建和 QEMU/GDB 调试
-│   ├── single-container/
-│   ├── multi-container/
+│   ├── dev.sh                  # 统一入口，版本/模块/rootfs 可选
 │   ├── apple-container/        # Apple container 原生构建与调试
 │   ├── debian-container/       # 轻量 Debian、整盘持久化、网络与内核调试
 │   ├── common/                 # 构建、rootfs、QEMU、源码绑定
@@ -26,7 +25,7 @@ kernel-debug-config/
 | 入口 | 内容 |
 | --- | --- |
 | [运行时调试](runtimes/README.md) | macOS → Ubuntu KVM Host 或 Linux 原生；VMM、Agent、runsc 源码断点 |
-| [Linux 内核调试](kernel/README.md) | Apple container / Docker 中编译匹配的内核、模块和 rootfs，F5 自动启动 QEMU 并停在 `start_kernel` |
+| [Linux 内核调试](kernel/README.md) | Apple container 中编译匹配的精简内核、模块和 rootfs，F5 自动启动 QEMU 并停在 `start_kernel` |
 | [轻量 Debian Guest](kernel/debian-container/README.md) | 1 CPU / 256 MiB，Debian APT、自动网络、ext4 持久化根盘 |
 | [网络实验](network/README.md) | 各实验的拓扑、部署脚本和配置 |
 | [公共 Ubuntu Host](runtimes/common/host/README.md) | 四种运行时共用的 Host 镜像与创建入口 |
@@ -39,9 +38,7 @@ kernel-debug-config/
 ./runtimes/qemu/dev.sh bind /path/to/qemu
 ./runtimes/gv/dev.sh bind /path/to/gvisor
 ./runtimes/kata/dev.sh bind /path/to/kata-containers
-./kernel/single-container/dev.sh bind /path/to/linux
-./kernel/multi-container/dev.sh bind /path/to/linux
-./kernel/apple-container/dev.sh bind /path/to/linux
+./kernel/dev.sh bind /path/to/linux
 ./kernel/debian-container/dev.sh bind /path/to/linux
 ```
 
@@ -51,7 +48,7 @@ kernel-debug-config/
 
 ## 从旧目录升级
 
-目录对应关系：`environments/` → `runtimes/`，Firecracker、Cloud Hypervisor 和 gVisor 配置目录分别为 `runtimes/fc/`、`runtimes/ch/`、`runtimes/gv/`；此前的 `runtimes/firecracker/`、`runtimes/cloud-hypervisor/`、`runtimes/gvisor/` 也迁移到相应短目录。`one_container/`、`multi_containers/`、`kernel_common/` → `kernel/` 下的相应目录；`net/` → `network/`。原先 `vscode/` 的使用指南移到 `kernel/README.md`，绑定工具移到 `kernel/common/workspace.py`。
+目录对应关系：`environments/` → `runtimes/`，Firecracker、Cloud Hypervisor 和 gVisor 配置目录分别为 `runtimes/fc/`、`runtimes/ch/`、`runtimes/gv/`；此前的 `runtimes/firecracker/`、`runtimes/cloud-hypervisor/`、`runtimes/gvisor/` 也迁移到相应短目录。旧 `one_container/`、`multi_containers/` 的本地 Docker 状态归档到 `kernel/output/legacy/`；`kernel_common/` → `kernel/common/`；`net/` → `network/`。当前内核源码和映像集中在 `kernel/output/sources/`，旧 single/multi 目录已移除。原先 `vscode/` 的使用指南移到 `kernel/README.md`，绑定工具移到 `kernel/common/workspace.py`。
 
 更新代码前先停止调试。更新后，如旧目录还保留 `.env`、`bin/` 或 `output/`，执行：
 
@@ -59,7 +56,7 @@ kernel-debug-config/
 python3 tools/migrate_layout.py
 ```
 
-脚本迁移本地状态、更新配置和生成工作区中的旧路径，并保留内核环境原有的 Docker 项目和缓存标识；遇到目标已有本地文件会停止并说明冲突。旧的 `one_container` / `multi_containers` 参数仍由内核 Python 入口兼容。迁移后重新打开新的工作区；运行时首次 F5 会按新源码路径增量构建。
+脚本迁移本地状态、更新配置和生成工作区中的旧路径，并在归档中保留旧 Docker 项目和缓存标识；遇到目标已有本地文件会停止并说明冲突，不会重新创建已删除的 single/multi 环境目录。旧的 `one_container` / `multi_containers` Python 参数仍兼容，统一转到 Alpine/Apple container 配置；原目录下的启动脚本已移除。迁移后重新打开新的工作区；运行时首次 F5 会按新源码路径增量构建。
 
 ## 验证
 

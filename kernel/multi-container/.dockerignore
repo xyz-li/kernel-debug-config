@@ -1,6 +1,0 @@
-output/
-rootfs-overlay/
-.vscode/
-*.code-workspace
-.env
-.git

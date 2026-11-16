@@ -15,6 +15,7 @@ REPO = DIRECTORY.parents[1]
 sys.path.insert(0, str(REPO / 'kernel/common'))
 from apple import AppleEnvironment
 from manifest import disk_uuid, file_hash, write_json
+from storage import clone_disk
 
 
 class Runtime(AppleEnvironment):
@@ -139,20 +140,6 @@ class Runtime(AppleEnvironment):
         if self.running():
             self.qemu('stop')
 
-
-def clone_disk(source, target):
-    """Use APFS cloning when possible, otherwise preserve zero regions as holes."""
-    if sys.platform == 'darwin':
-        result = subprocess.run(['/bin/cp', '-c', str(source), str(target)], capture_output=True)
-        if result.returncode == 0:
-            return
-    with source.open('rb') as reader, target.open('wb') as writer:
-        while chunk := reader.read(1024 * 1024):
-            if chunk.strip(b'\0'):
-                writer.write(chunk)
-            else:
-                writer.seek(len(chunk), 1)
-        writer.truncate(reader.tell())
 
 
 def main():
